@@ -1,0 +1,30 @@
+{
+  "name": "napcat-plugin-aicat",
+  "plugin": "AI Cat 二改版",
+  "version": "1.4.4",
+  "type": "module",
+  "main": "index.mjs",
+  "description": "基于原作者冷曦的 AI Cat 二次修改版 NapCat 智能助手插件，支持 AI 对话、群管理、渠道模型指令管理、生图、自定义指令、定时任务、用户检测器、历史消息查询等功能",
+  "author": "余生只有凄渺",
+  "napcat": {
+    "tags": [
+      "AI",
+      "娱乐",
+      "群管",
+      "生图"
+    ],
+    "minVersion": "4.14.0",
+    "homepage": "https://github.com/liyw0205/napcat-plugin-lengxi"
+  },
+  "dependencies": {
+    "napcat-types": "0.0.9"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  },
+  "scripts": {
+    "build": "vite build"
+  }
+}
