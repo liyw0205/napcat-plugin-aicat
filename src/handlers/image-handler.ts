@@ -494,10 +494,80 @@ function looksLikeNaturalSelfieRequest (cmd: string): boolean {
   const compact = normalizePersonaNaturalText(cmd);
   if (!compact) return false;
 
+  /**
+   * OCR / 识图类短句：
+   *
+   * 这些话的语义通常是“让你看看这张图 / 这条消息 / 引用内容”，
+   * 而不是“让我看看你自己”。
+   *
+   * 注意：
+   * - “看看你” 是自拍
+   * - “你看看” 是 OCR / 普通识图
+   */
+  const ocrLikeExactPhrases = [
+    '你看看',
+    '你看下',
+    '你看一下',
+    '你帮我看看',
+    '你帮我看下',
+    '你帮我看一下',
+    '帮我看看',
+    '帮我看下',
+    '帮我看一下',
+    '看看这个',
+    '看看这张',
+    '看看这图',
+    '看看这张图',
+    '看下这个',
+    '看下这张',
+    '看下这图',
+    '看下这张图',
+    '看一下这个',
+    '看一下这张',
+    '看一下这图',
+    '看一下这张图',
+    '这是什么',
+    '这是啥',
+    '这是啥子',
+    '这啥',
+    '这个是什么',
+    '这个是啥',
+    '这张图是什么',
+    '这图是什么',
+    '图里是什么',
+    '图片里是什么',
+    '这张图里有什么',
+    '图里有什么',
+  ];
+
+  if (ocrLikeExactPhrases.includes(compact)) {
+    return false;
+  }
+
+  /**
+   * 更宽松的 OCR 短句匹配：
+   *
+   * 例如：
+   * - 你看看这个
+   * - 你看一下这张图
+   * - 帮我看看这是什么
+   */
+  if (
+    /^你(?:帮我)?看(?:看|下|一下)(?:这个|这张|这图|这张图|一下)?$/.test(compact) ||
+    /^帮我看(?:看|下|一下)(?:这个|这张|这图|这张图|一下)?$/.test(compact)
+  ) {
+    return false;
+  }
+
   const botName = String(pluginState.config.botName || '').trim().toLowerCase();
   const botTerms = ['你', '你的', '你自己', '你本人', '本体', '机器人', '助手', '看板娘'];
   if (botName) botTerms.push(botName);
 
+  /**
+   * 明确自拍表达：
+   *
+   * 这些是“用户要看 AI 自己”的语义。
+   */
   const directPhrases = [
     '看看你',
     '看下你',
@@ -514,6 +584,7 @@ function looksLikeNaturalSelfieRequest (cmd: string): boolean {
     '你长啥样',
     '看看你的样子',
     '看下你的样子',
+    '看一下你的样子',
     '你的样子',
     '你的自拍',
     '你的照片',
@@ -584,24 +655,16 @@ function looksLikeNaturalSelfieRequest (cmd: string): boolean {
     '参考这个',
   ];
 
-  const requestTerms = [
-    '看看',
-    '看下',
-    '看一下',
-    '想看',
-    '给我看',
-    '让我看',
-    '发张',
-    '来张',
-  ];
-
+  /**
+   * 只有“照片 / 自拍 / 穿搭 / 换装 / 参考你自己形象”这类明确指向 AI 自己的内容，
+   * 才判定为自拍。
+   *
+   * 不再用“你 + 看看”这种宽泛规则，
+   * 避免“你看看”误触发自拍。
+   */
   if (photoTerms.some(term => compact.includes(term))) return true;
   if (outfitTerms.some(term => compact.includes(term))) return true;
   if (referenceTerms.some(term => compact.includes(term))) return true;
-
-  if (requestTerms.some(term => compact.includes(term))) {
-    if (compact.includes('你')) return true;
-  }
 
   return false;
 }

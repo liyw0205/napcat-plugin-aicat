@@ -60,13 +60,13 @@ export const MUSIC_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'play_music',
-      description: '搜索音乐并显示候选列表，不会自动播放。用户说“点歌 xxx”“我想听 xxx”“来首 xxx”时调用。',
+      description: '自动点歌并播放。用户说“我想听 xxx”“来首 xxx”“放一首 xxx”时调用。LLM 调用此工具时会自动搜索、自动匹配歌手、自动选择并播放；手动点歌指令才显示候选列表。',
       parameters: {
         type: 'object',
         properties: {
           keyword: {
             type: 'string',
-            description: '歌曲名、歌手名或搜索关键词',
+            description: '歌曲名、歌手名或完整点歌请求。例如：晴天、周杰伦的晴天、QQ的稻香、我想听周杰伦的晴天',
           },
           platform: {
             type: 'string',
@@ -132,6 +132,179 @@ export function normalizeMusicServer(value: unknown): MusicServer {
   }
 
   return 'netease';
+}
+
+function detectMusicServerFromText(text: string): MusicServer | '' {
+  const raw = String(text || '').trim().toLowerCase();
+
+  if (
+    raw.includes('qq音乐') ||
+    raw.includes('qq的') ||
+    raw.includes('qq ') ||
+    raw.includes('qq点') ||
+    raw.includes('腾讯音乐') ||
+    raw.includes('腾讯的') ||
+    raw.includes('tencent')
+  ) {
+    return 'tencent';
+  }
+
+  if (
+    raw.includes('网易云') ||
+    raw.includes('网易的') ||
+    raw.includes('netease')
+  ) {
+    return 'netease';
+  }
+
+  return '';
+}
+
+function stripMusicRequestWords(text: string): string {
+  let s = String(text || '').trim();
+
+  s = s
+    .replace(/^我想听\s*/i, '')
+    .replace(/^想听\s*/i, '')
+    .replace(/^我要听\s*/i, '')
+    .replace(/^我想要听\s*/i, '')
+    .replace(/^来一首\s*/i, '')
+    .replace(/^来首\s*/i, '')
+    .replace(/^放一首\s*/i, '')
+    .replace(/^播放\s*/i, '')
+    .replace(/^帮我放\s*/i, '')
+    .replace(/^给我放\s*/i, '')
+    .replace(/^点歌\s*/i, '')
+    .replace(/^qq点歌\s*/i, '')
+    .replace(/^QQ点歌\s*/, '')
+    .replace(/^qq音乐点歌\s*/i, '')
+    .replace(/^QQ音乐点歌\s*/, '')
+    .replace(/^网易云点歌\s*/, '')
+    .replace(/^网易点歌\s*/, '')
+    .trim();
+
+  s = s
+    .replace(/^(qq|QQ|qq音乐|QQ音乐|腾讯|腾讯音乐)的?/i, '')
+    .replace(/^(网易|网易云|网易云音乐)的?/i, '')
+    .trim();
+
+  return s;
+}
+
+function normalizeMusicText(text: string): string {
+  return String(text || '')
+    .trim()
+    .replace(/[《》「」『』【】]/g, '')
+    .replace(/[，。！？、；：,.!?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function compactMusicText(text: string): string {
+  return normalizeMusicText(text)
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+function parseMusicIntent(rawKeyword: string): {
+  song: string;
+  artist: string;
+  query: string;
+  platformHint: MusicServer | '';
+} {
+  const raw = normalizeMusicText(rawKeyword);
+  const platformHint = detectMusicServerFromText(raw);
+  let text = stripMusicRequestWords(raw);
+
+  text = normalizeMusicText(text);
+
+  let artist = '';
+  let song = text;
+
+  /**
+   * 典型：
+   * - 周杰伦的晴天
+   * - 周杰伦 的 晴天
+   * - 陈奕迅的十年
+   */
+  const possessiveMatch = text.match(/^(.{1,30}?)(?:的|唱的|演唱的)(.{1,80})$/);
+
+  if (possessiveMatch) {
+    artist = possessiveMatch[1].trim();
+    song = possessiveMatch[2].trim();
+  } else {
+    /**
+     * 兼容：
+     * - 周杰伦 晴天
+     * - 周杰伦-晴天
+     * - 周杰伦 - 晴天
+     */
+    const sepMatch = text.match(/^(.{1,20}?)[\s\-—_]+(.{1,80})$/);
+
+    if (sepMatch) {
+      artist = sepMatch[1].trim();
+      song = sepMatch[2].trim();
+    }
+  }
+
+  song = normalizeMusicText(song);
+  artist = normalizeMusicText(artist);
+
+  return {
+    song,
+    artist,
+    query: song || text,
+    platformHint,
+  };
+}
+
+function scoreSongForIntent(song: Song, intent: { song: string; artist: string; }): number {
+  const targetSong = compactMusicText(intent.song);
+  const targetArtist = compactMusicText(intent.artist);
+
+  const songName = compactMusicText(song.name);
+  const artists = compactMusicText(song.artists);
+
+  let score = 0;
+
+  if (targetSong) {
+    if (songName === targetSong) score += 100;
+    else if (songName.includes(targetSong)) score += 70;
+    else if (targetSong.includes(songName)) score += 30;
+  }
+
+  if (targetArtist) {
+    if (artists === targetArtist) score += 120;
+    else if (artists.includes(targetArtist)) score += 100;
+    else if (targetArtist.includes(artists)) score += 40;
+  }
+
+  return score;
+}
+
+function pickBestSongForIntent(
+  songs: Song[],
+  intent: { song: string; artist: string; }
+): Song | null {
+  if (!songs.length) return null;
+
+  if (!intent.artist) {
+    return songs[0];
+  }
+
+  let best = songs[0];
+  let bestScore = -1;
+
+  for (const song of songs) {
+    const score = scoreSongForIntent(song, intent);
+
+    if (score > bestScore) {
+      best = song;
+      bestScore = score;
+    }
+  }
+
+  return best || songs[0];
 }
 
 function serverName(server: MusicServer): string {
@@ -787,6 +960,92 @@ export async function searchMusicListForSession(
   };
 }
 
+async function autoSearchAndPlayMusic(
+  event: OB11Message,
+  ctx: NapCatPluginContext,
+  rawKeyword: string,
+  server: MusicServer,
+  limit = 10
+): Promise<ToolResult> {
+  const intent = parseMusicIntent(rawKeyword);
+
+  const finalServer = intent.platformHint || server || 'netease';
+  const query = intent.query || stripMusicRequestWords(rawKeyword);
+
+  if (!query) {
+    return {
+      success: false,
+      error: '缺少歌曲关键词',
+    };
+  }
+
+  let songs: Song[] = [];
+
+  try {
+    songs = await searchMusicByMeting(query, finalServer, limit);
+  } catch (e) {
+    return {
+      success: false,
+      error: `搜索失败: ${String(e)}`,
+    };
+  }
+
+  if (!songs.length) {
+    return {
+      success: false,
+      error: `${serverName(finalServer)}没有搜索到：${query}`,
+      data: {
+        keyword: query,
+        artist: intent.artist,
+        song: intent.song,
+        platform: finalServer,
+      },
+    };
+  }
+
+  const selected = pickBestSongForIntent(songs, intent);
+
+  if (!selected) {
+    return {
+      success: false,
+      error: '没有可播放的歌曲',
+      data: {
+        keyword: query,
+        artist: intent.artist,
+        song: intent.song,
+        platform: finalServer,
+        songs,
+      },
+    };
+  }
+
+  await sendReply(
+    event,
+    [
+      `🎧 正在播放：${selected.name} - ${selected.artists}`,
+      `🎵 平台：${serverName(finalServer)}`,
+      intent.artist ? `🔎 匹配歌手：${intent.artist}` : '',
+    ].filter(Boolean).join('\n'),
+    ctx
+  );
+
+  const result = await sendSong(event, ctx, selected, 'record');
+
+  return {
+    ...result,
+    data: {
+      ...(result.data && typeof result.data === 'object' ? result.data as Record<string, unknown> : {}),
+      auto_selected: true,
+      keyword: query,
+      requested_artist: intent.artist,
+      requested_song: intent.song,
+      platform: finalServer,
+      selected,
+      candidates: songs.slice(0, limit),
+    },
+  };
+}
+
 export async function selectMusicFromSession(
   event: OB11Message,
   ctx: NapCatPluginContext,
@@ -885,18 +1144,22 @@ export async function executeMusicTool(
   }
 
   if (name === 'search_music') {
-    const server = normalizeMusicServer(args.platform);
+    const intent = parseMusicIntent(keyword);
+    const server = intent.platformHint || normalizeMusicServer(args.platform);
     const limit = normalizeLimit(args.limit);
+    const query = intent.query || keyword;
 
-    const songs = await searchMusicByMeting(keyword, server, limit);
+    const songs = await searchMusicByMeting(query, server, limit);
 
     return {
       success: true,
       message: songs.length
         ? `搜索到 ${songs.length} 首歌曲`
-        : `没有搜索到歌曲：${keyword}`,
+        : `没有搜索到歌曲：${query}`,
       data: {
-        keyword,
+        keyword: query,
+        requested_artist: intent.artist,
+        requested_song: intent.song,
         platform: server,
         songs,
       },
@@ -905,10 +1168,17 @@ export async function executeMusicTool(
   }
 
   if (name === 'play_music') {
-    const server = normalizeMusicServer(args.platform);
+    const intent = parseMusicIntent(keyword);
+    const server = intent.platformHint || normalizeMusicServer(args.platform);
     const limit = normalizeLimit(args.limit || 10);
 
-    return await searchMusicListForSession(
+    /**
+     * LLM 点歌：自动搜索、自动匹配、自动播放。
+     *
+     * 手动点歌不走这里，手动点歌在 music-handler.ts 里仍然调用
+     * searchMusicListForSession() 展示候选列表。
+     */
+    return await autoSearchAndPlayMusic(
       event,
       ctx,
       keyword,

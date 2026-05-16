@@ -8,6 +8,7 @@ export interface ImageDailySelfieProfile {
   date: string;
   outfit: string;
   status: string;
+  status_by_period?: Partial<Record<'morning' | 'noon' | 'afternoon' | 'evening' | 'night' | 'late_night', string>>;
   mood: string;
   seed: string;
   updated_at: string;
@@ -19,7 +20,6 @@ export interface ImagePersonaData {
   ref_mime_type: string;
   updated_at?: string;
   daily_selfie_profile?: ImageDailySelfieProfile;
-  daily_selfie_history?: ImageDailySelfieProfile[];
 }
 
 export interface SelfieIntent {
@@ -70,6 +70,36 @@ function getLocalDateKey (): string {
   const d = String(now.getDate()).padStart(2, '0');
 
   return `${y}-${m}-${d}`;
+}
+
+function getCurrentTimePeriod (): 'morning' | 'noon' | 'afternoon' | 'evening' | 'night' | 'late_night' {
+  const h = new Date().getHours();
+
+  if (h >= 5 && h < 10) return 'morning';
+  if (h >= 10 && h < 13) return 'noon';
+  if (h >= 13 && h < 17) return 'afternoon';
+  if (h >= 17 && h < 21) return 'evening';
+  if (h >= 21 || h < 1) return 'night';
+  return 'late_night';
+}
+
+function getTimePeriodLabel (period: ReturnType<typeof getCurrentTimePeriod>): string {
+  switch (period) {
+    case 'morning': return '早晨';
+    case 'noon': return '中午';
+    case 'afternoon': return '下午';
+    case 'evening': return '傍晚';
+    case 'night': return '夜晚';
+    case 'late_night': return '深夜';
+    default: return '当前';
+  }
+}
+
+function getProfileCurrentStatus (profile?: ImageDailySelfieProfile): string {
+  if (!profile) return '';
+
+  const period = getCurrentTimePeriod();
+  return String(profile.status_by_period?.[period] || profile.status || '').trim();
 }
 
 function randomPick<T> (list: T[]): T {
@@ -219,43 +249,42 @@ function normalizeProfileText (value: unknown, fallback: string, maxLen = 260): 
 
 function fallbackDailyProfile (date: string, seed: string): ImageDailySelfieProfile {
   const outfits = [
-    '奶油白色彼得潘领蕾丝衬衫，领口系着淡粉色丝缎蝴蝶结，外搭淡紫色镂空针织开衫。下身是浅粉与奶白交织的格纹高腰百褶短裙，配白色圆头厚底玛丽珍鞋和蕾丝花边纯白色中筒袜。',
-    '柔软的杏仁米色针织短开衫，内搭白色细肩带连衣裙，裙摆带一点轻盈荷叶边。脚上是浅棕色小皮鞋和奶白色短袜，发间别着一枚小珍珠发夹。',
-    '浅蓝灰色宽松卫衣，胸前有小猫刺绣，搭配白色百褶短裙和软绵绵的居家拖鞋，整体看起来轻松又可爱。',
-    '樱花粉色泡泡袖上衣，搭配奶油白高腰A字短裙，腰间有细细的蝴蝶结系带，脚上穿白色玛丽珍鞋和淡粉色袜子。',
-    '雾紫色薄款针织连衣裙，袖口有蕾丝边，外披奶白色毛绒小披肩，搭配浅色短靴，整体温柔又有一点梦幻。',
-    '奶茶色短款针织上衣，搭配月白色半身裙，裙摆有柔软褶皱，脚上穿圆头小皮鞋，耳边戴着小小的蝴蝶结耳饰。',
-    '浅鹅黄色荷叶边衬衫，外搭奶油白针织马甲，下身是浅棕格纹百褶裙，配白色短袜和棕色玛丽珍鞋。',
-    '薄荷绿色细针织开衫，内搭白色蕾丝吊带，搭配淡蓝色高腰短裙，头发用透明感发夹轻轻别起。',
+    '奶油白色细针织上衣，领口有柔软的小花边，外搭浅杏色短开衫，下身是浅棕格纹百褶裙，搭配白色短袜和圆头玛丽珍鞋，整体温柔干净。',
+    '浅粉色宽松卫衣，胸前有小猫刺绣，下身搭配奶白色短裙和柔软居家袜，发间别着一枚小珍珠发夹，整体轻松可爱。',
+    '雾紫色针织连衣裙，袖口带一点蕾丝边，外披奶白色毛绒小披肩，搭配浅色短靴，整体柔和又有一点梦幻。',
+    '杏仁米色短款针织开衫，内搭白色细肩带连衣裙，裙摆轻盈自然，搭配浅棕小皮鞋和奶白短袜，显得安静又清爽。',
+    '浅蓝灰色宽松衬衫，袖口微微卷起，搭配白色高腰半身裙和简洁小皮鞋，整体像日常随手拍一样自然。',
+    '樱花粉泡泡袖上衣，搭配奶油白 A 字短裙，腰间有细细蝴蝶结系带，脚上是白色玛丽珍鞋和淡粉短袜。',
+    '薄荷绿色细针织开衫，内搭白色蕾丝吊带，搭配淡蓝色高腰短裙，发尾自然垂落，整体清新柔软。',
+    '月白色宽松毛衣，搭配浅灰百褶裙和白色中筒袜，脚上是圆头小皮鞋，整体有一种干净温暖的日常感。',
   ];
 
-  const statuses = [
-    '刚结束外面的文创市集闲逛，回家洗完澡点上了香薰，正准备听着音乐做睡前护肤。',
-    '刚把房间收拾干净，桌上放着热茶和小饼干，准备窝在灯光柔软的角落里放松一会儿。',
-    '刚从阳台浇完花回来，窗外风很轻，正坐在窗边整理今天拍下的小照片。',
-    '刚换好舒适的居家衣服，正在床边抱着抱枕听歌，整个人看起来很放松。',
-    '刚做完简单的晚间护肤，脸颊还带着一点水润光泽，准备在镜子前随手自拍一张。',
-    '刚回到家把外套挂好，坐在玄关旁换鞋，手边还放着今天买回来的小纸袋。',
-    '刚泡好一杯热牛奶，正披着柔软小毯子靠在沙发上，房间里是暖黄色灯光。',
-    '刚洗完头发吹到半干，发尾还有一点蓬松感，正坐在梳妆台前整理发夹。',
+  const moodSeeds = [
+    '放松、安静、柔和',
+    '清爽、自然、轻松',
+    '温柔、治愈、稳定',
+    '元气、明亮、轻快',
+    '慵懒、舒适、安心',
+    '安静、专注、柔软',
   ];
 
-  const moods = [
-    '心情柔软又安心，像被暖光和香薰包起来一样，有一点想撒娇。',
-    '很放松，带着一点小小的开心和满足感。',
-    '安静又治愈，想慢慢说话，也想被温柔对待。',
-    '元气还没完全用完，眼神亮亮的，带着一点俏皮。',
-    '有点慵懒，但心里很甜，像刚刚拥有了属于自己的小小夜晚。',
-    '心里轻飘飘的，有一点期待被夸可爱。',
-    '刚刚好累但很满足，整个人软乎乎的。',
-    '有点害羞，却又忍不住想把今天的样子分享出去。',
-  ];
+  const statusByPeriod: ImageDailySelfieProfile['status_by_period'] = {
+    morning: '刚整理好头发和衣服，房间里是清晨的柔和光线，整个人看起来清爽自然。',
+    noon: '坐在明亮的窗边休息，桌上放着简单的饮品和小点心，状态轻松又干净。',
+    afternoon: '在房间里随意活动了一会儿，光线变得柔和，衣服和发丝都显得很自然。',
+    evening: '刚把房间的暖光灯打开，周围氛围安静柔软，像准备随手拍一张日常照片。',
+    night: '换到更舒适的室内状态，灯光温暖，表情放松，画面有安静的夜晚感。',
+    late_night: '房间里只留着柔和小灯，状态有些慵懒但很安稳，像睡前随手自拍。',
+  };
+
+  const period = getCurrentTimePeriod();
 
   return {
     date,
     outfit: randomPick(outfits),
-    status: randomPick(statuses),
-    mood: randomPick(moods),
+    status: statusByPeriod[period] || '处于自然放松的日常状态，画面安静、统一、真实。',
+    status_by_period: statusByPeriod,
+    mood: randomPick(moodSeeds),
     seed,
     updated_at: new Date().toISOString(),
     source: 'fallback',
@@ -269,7 +298,6 @@ class ImagePersonaManager {
   private data: ImagePersonaData = {
     ref_image_path: '',
     ref_mime_type: 'image/png',
-    daily_selfie_history: [],
   };
 
   init (dataDir: string): void {
@@ -303,15 +331,11 @@ class ImagePersonaManager {
         ref_mime_type: String(raw.ref_mime_type || 'image/png'),
         updated_at: raw.updated_at,
         daily_selfie_profile: raw.daily_selfie_profile,
-        daily_selfie_history: Array.isArray(raw.daily_selfie_history)
-          ? raw.daily_selfie_history
-          : [],
       };
     } catch {
       this.data = {
         ref_image_path: '',
         ref_mime_type: 'image/png',
-        daily_selfie_history: [],
       };
     }
   }
@@ -331,7 +355,6 @@ class ImagePersonaManager {
     this.ensureInit();
     return {
       ...this.data,
-      daily_selfie_history: [...(this.data.daily_selfie_history || [])],
     };
   }
 
@@ -458,42 +481,44 @@ class ImagePersonaManager {
   private buildDailyProfilePrompt (date: string, action: string, seed: string): string {
     const botName = pluginState.config.botName || 'AI';
     const personality = pluginState.config.personality || '';
-
-    const history = (this.data.daily_selfie_history || [])
-      .slice(-7)
-      .map(item => [
-        `日期：${item.date}`,
-        `来源：${item.source || 'unknown'}`,
-        `穿搭：${item.outfit}`,
-        `状态：${item.status}`,
-        `心情：${item.mood}`,
-      ].join('\n'))
-      .join('\n\n');
+    const period = getCurrentTimePeriod();
+    const periodLabel = getTimePeriodLabel(period);
 
     return [
       '你是 AI 自拍日常设定生成器。',
       '',
-      '请为今天生成一份“自拍日常状态”，用于后续图像生成。',
+      '请为今天生成一份“AI 自拍日常状态”，用于图像生成。',
       '',
-      '要求：',
-      '1. 必须符合角色人设，不要改变角色身份、脸、发色、核心形象，只更新衣服、状态和心情。',
-      '2. 今日穿搭要具体、有层次、有颜色、有材质、有鞋袜或配饰。',
-      '3. 当前状态要像真实日常，不要夸张，不要战斗、危险、政治、血腥、色情。',
-      '4. 当前心情要自然，有一点细腻情绪。',
-      '5. 要参考历史记录，避免连续几天穿搭和心情过于重复。',
-      '6. 用户自拍动作只作为灵感，不要完全复制成状态。',
+      '重要要求：',
+      '1. 只生成当前 AI 助手自己的日常状态，不要写第二个人，不要出现“被谁夸奖 / 给谁看 / 和某人互动”等明显第二人描述。',
+      '2. 不要改变角色身份、脸、发色、核心形象，只更新今日穿搭、环境状态和心情。',
+      '3. 今日穿搭必须具体、连贯、可视化，有颜色、材质、层次、鞋袜或配饰。',
+      '4. 当前状态要像真实生活里的自然自拍，不要夸张，不要战斗、危险、政治、血腥、色情。',
+      '5. 请额外给出不同时间段的状态描述，方便运行时按时间段取用。',
+      '6. 所有状态描述都要通用、自然、单人视角，不要写明显第二人。',
       '7. 只输出 JSON，不要 Markdown，不要解释。',
       '',
       `今天日期：${date}`,
+      `当前时间段：${periodLabel}`,
       `随机种子：${seed}`,
       `角色名称：${botName}`,
       personality ? `角色人设：${personality}` : '',
-      action ? `用户这次想看的自拍动作/场景：${action}` : '',
+      action ? `本次用户自拍意图：${action}` : '',
       '',
-      history ? `最近历史：\n${history}` : '最近历史：暂无',
-      '',
-      '输出格式：',
-      '{"outfit":"今日穿搭","status":"当前状态","mood":"当前心情"}',
+      '输出 JSON 格式：',
+      JSON.stringify({
+        outfit: '今日固定穿搭，详细、连贯、可用于图像生成',
+        status: '当前通用状态',
+        status_by_period: {
+          morning: '早晨状态',
+          noon: '中午状态',
+          afternoon: '下午状态',
+          evening: '傍晚状态',
+          night: '夜晚状态',
+          late_night: '深夜状态',
+        },
+        mood: '当前心情',
+      }),
     ].filter(Boolean).join('\n');
   }
 
@@ -558,10 +583,50 @@ class ImagePersonaManager {
         obj['当前心情'] ??
         obj['心情'];
 
+      const statusByPeriodRaw =
+        obj.status_by_period ??
+        obj.statusByPeriod ??
+        obj.period_status ??
+        obj.periodStatus ??
+        obj['分时段状态'];
+
+      const fallbackStatusByPeriod = fallback.status_by_period || {};
+
+      let statusByPeriod: ImageDailySelfieProfile['status_by_period'] = {
+        ...fallbackStatusByPeriod,
+      };
+
+      if (
+        statusByPeriodRaw &&
+        typeof statusByPeriodRaw === 'object' &&
+        !Array.isArray(statusByPeriodRaw)
+      ) {
+        const r = statusByPeriodRaw as Record<string, unknown>;
+
+        statusByPeriod = {
+          morning: normalizeProfileText(r.morning ?? r['早晨'] ?? r['上午'], fallbackStatusByPeriod.morning || fallback.status, 280),
+          noon: normalizeProfileText(r.noon ?? r['中午'] ?? r['午间'], fallbackStatusByPeriod.noon || fallback.status, 280),
+          afternoon: normalizeProfileText(r.afternoon ?? r['下午'], fallbackStatusByPeriod.afternoon || fallback.status, 280),
+          evening: normalizeProfileText(r.evening ?? r['傍晚'] ?? r['晚上前'], fallbackStatusByPeriod.evening || fallback.status, 280),
+          night: normalizeProfileText(r.night ?? r['夜晚'] ?? r['晚上'], fallbackStatusByPeriod.night || fallback.status, 280),
+          late_night: normalizeProfileText(r.late_night ?? r.lateNight ?? r['深夜'], fallbackStatusByPeriod.late_night || fallback.status, 280),
+        };
+      }
+
+      const currentStatus = normalizeProfileText(
+        status,
+        getProfileCurrentStatus({
+          ...fallback,
+          status_by_period: statusByPeriod,
+        }),
+        320
+      );
+
       return {
         date,
         outfit: normalizeProfileText(outfit, fallback.outfit, 420),
-        status: normalizeProfileText(status, fallback.status, 320),
+        status: currentStatus,
+        status_by_period: statusByPeriod,
         mood: normalizeProfileText(mood, fallback.mood, 260),
         seed,
         updated_at: new Date().toISOString(),
@@ -580,7 +645,10 @@ class ImagePersonaManager {
     const existed = this.data.daily_selfie_profile;
 
     if (existed?.date === today && existed.outfit && existed.status && existed.mood) {
-      return existed;
+      return {
+        ...existed,
+        status: getProfileCurrentStatus(existed) || existed.status,
+      };
     }
 
     const seed = makeRandomSeed();
@@ -588,17 +656,11 @@ class ImagePersonaManager {
     const generated = await this.generateDailyProfileByChatModel(today, action, seed);
     const profile = generated || fallbackDailyProfile(today, seed);
 
-    const history = Array.isArray(this.data.daily_selfie_history)
-      ? this.data.daily_selfie_history
-      : [];
-
-    const nextHistory = [
-      ...history.filter(item => item.date !== today),
-      profile,
-    ].slice(-14);
-
+    /**
+     * 不再保存历史数据。
+     * 每天第一次生成今日设定，直接覆盖。
+     */
     this.data.daily_selfie_profile = profile;
-    this.data.daily_selfie_history = nextHistory;
     this.data.updated_at = new Date().toISOString();
 
     this.save();
@@ -621,7 +683,10 @@ class ImagePersonaManager {
     const profile = this.data.daily_selfie_profile;
     if (!profile) return null;
 
-    return { ...profile };
+    return {
+      ...profile,
+      status: getProfileCurrentStatus(profile) || profile.status,
+    };
   }
 
   buildSelfiePrompt (
@@ -632,20 +697,25 @@ class ImagePersonaManager {
     }
   ): string {
     this.ensureInit();
-  
+
     const botName = pluginState.config.botName || 'AI';
     const personality = pluginState.config.personality || '';
     const act = String(action || '').trim();
     const intent = this.analyzeSelfieIntent(act);
-  
+
     const daily = this.data.daily_selfie_profile;
     const hasReferenceImage = Boolean(options?.has_reference_image);
     const extraReferenceCount = Number(options?.extra_reference_count || 0);
-  
+
     const dailyOutfitLine = daily?.outfit ? `今日穿搭：${daily.outfit}` : '';
-    const dailyStatusLine = daily?.status ? `当前状态：${daily.status}` : '';
+    const currentStatus = getProfileCurrentStatus(daily);
+    const currentPeriod = getCurrentTimePeriod();
+    const currentPeriodLabel = getTimePeriodLabel(currentPeriod);
+    const dailyStatusLine = currentStatus
+      ? `当前时间段：${currentPeriodLabel}\n当前状态：${currentStatus}`
+      : '';
     const dailyMoodLine = daily?.mood ? `当前心情：${daily.mood}` : '';
-  
+
     const identityLines = hasReferenceImage
       ? [
           '存在固定自拍形象参考图。',
@@ -658,7 +728,7 @@ class ImagePersonaManager {
           '请严格根据角色名称、人设、今日状态来生成同一个稳定角色，不要生成随机路人脸。',
           '没有形象参考图时，角色名称、人设和今日设定就是主角身份的主要依据。',
         ];
-  
+
     const referenceLines = extraReferenceCount > 0
       ? [
           `当前除${hasReferenceImage ? '参考图一' : '主角设定'}外，还有 ${extraReferenceCount} 张额外参考图。`,
@@ -670,20 +740,26 @@ class ImagePersonaManager {
             : '没有固定形象图时，额外参考图可以辅助构图、衣服、姿势，但主角仍应符合角色名称和人设。',
         ]
       : [];
-  
+
     const modeLines: string[] = [];
-  
+
     if (intent.isGroupPhoto) {
       modeLines.push('【合照 / 同框模式】');
       modeLines.push('本次要求是合照 / 合影 / 同框。');
       modeLines.push('主角仍然是你自己。');
       modeLines.push('如果提供了额外参考图或头像，可作为同框对象参考。');
       modeLines.push('除非用户明确要求多人，否则最多只出现你和一位同框对象。');
-  
+
+      modeLines.push('如果同框对象来自用户引用图、头像或额外参考图，需要先判断参考内容类型。');
+      modeLines.push('如果额外参考图是动漫角色、游戏角色、二次元头像、卡通形象、动物、非人形象或抽象头像，请将其真人化 / 拟人化为自然真实的人类同框对象。');
+      modeLines.push('真人化时保留其最有代表性的元素，例如发色、发型、服装颜色、配饰、气质、主题特征，但不要直接生成扁平动漫图、头像贴纸或非人怪物。');
+      modeLines.push('如果参考图是动物或非人角色，可转化为具有对应主题元素的人类角色，例如猫耳发饰、同色服装、相似气质或主题配饰。');
+      modeLines.push('同框对象应自然融入同一真实画面，和主角处在同一个空间、同一光线、同一镜头下。');
+
       if (intent.changeClothes) {
         modeLines.push('本次合照同时包含换装 / 服装参考要求，额外参考图中的服装、配饰、颜色、材质可以用于你。');
       }
-  
+
       if (intent.changePose) {
         modeLines.push('本次合照同时包含姿势 / 动作 / 表情参考要求，额外参考图中的动作、镜头角度、构图可以用于你或合照构图。');
       }
@@ -710,13 +786,13 @@ class ImagePersonaManager {
       modeLines.push('本次要求是普通自拍 / 看看你现在的样子。');
       modeLines.push('优先使用你今天的穿搭、状态和心情来生成一张自然的照片。');
     }
-  
+
     if (intent.hasReferenceStyleHint && !intent.changeClothes && !intent.isGroupPhoto) {
       modeLines.push('如果提供了额外参考图，可以适度参考其风格、构图或氛围，但不要改变你自己的身份。');
     }
-  
+
     const todayLines: string[] = [];
-  
+
     /**
      * 今日穿搭规则：
      * - 普通自拍：传今日穿搭。
@@ -727,14 +803,14 @@ class ImagePersonaManager {
     if (dailyOutfitLine && !intent.changeClothes) {
       todayLines.push(dailyOutfitLine);
     }
-  
+
     if (dailyStatusLine) todayLines.push(dailyStatusLine);
     if (dailyMoodLine) todayLines.push(dailyMoodLine);
-  
+
     const actionLine = act
       ? `用户要求：${act}`
       : '用户要求：看着镜头自然自拍，展示你现在的样子。';
-  
+
     const outputConstraintLines = intent.isGroupPhoto
       ? [
           '【生成要求】',
@@ -756,16 +832,16 @@ class ImagePersonaManager {
           '',
           'single image, natural selfie photo, complete and unified scene, no collage, no grid, no split screen, no character sheet, no multiple views, no watermark, no text',
         ];
-  
+
     return [
       `这是 ${botName} 的自拍照片。`,
-  
+
       /**
        * 有固定形象图时，不让长人格描述压过参考图身份。
        * 没有形象图时，人格才作为主角身份依据。
        */
       !hasReferenceImage && personality ? `角色设定：${personality}` : '',
-  
+
       ...identityLines,
       ...referenceLines,
       ...todayLines,
@@ -786,7 +862,7 @@ class ImagePersonaManager {
           `📅 今日自拍设定：${profile.date}`,
           `🧩 来源：${profile.source === 'chat_model' ? '会话模型生成' : '本地随机兜底'}`,
           `👗 今日穿搭：${profile.outfit}`,
-          `🏠 当前状态：${profile.status}`,
+          `🏠 当前状态(${getTimePeriodLabel(getCurrentTimePeriod())})：${getProfileCurrentStatus(profile) || profile.status}`,
           `💗 当前心情：${profile.mood}`,
         ].join('\n')
       : '';
