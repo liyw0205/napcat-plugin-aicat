@@ -26,6 +26,7 @@ export interface SelfieIntent {
   raw: string;
   compact: string;
   isGroupPhoto: boolean;
+  isMultiPersonGroupPhoto: boolean;
   changeClothes: boolean;
   changePose: boolean;
   useTodayOutfit: boolean;
@@ -438,39 +439,111 @@ class ImagePersonaManager {
   analyzeSelfieIntent (action: string): SelfieIntent {
     const raw = String(action || '').trim();
     const compact = normalizeIntentText(raw);
-
+  
     const isGroupPhoto = includesAny(compact, [
-      '合照', '合影', '同框', '一起拍', '一起照', '跟我拍', '和我拍', '双人', '多人',
+      '合照',
+      '合影',
+      '同框',
+      '一起拍',
+      '一起照',
+      '跟我拍',
+      '和我拍',
+      '双人',
+      '多人',
+      '大合照',
+      '集体照',
+      '全员',
+      '一起出镜',
+      '三人',
+      '四人',
+      '五人',
+      '六人',
     ]);
-
+  
+    const isMultiPersonGroupPhoto = includesAny(compact, [
+      '多人',
+      '大合照',
+      '集体照',
+      '全员',
+      '三人',
+      '四人',
+      '五人',
+      '六人',
+      '多人合照',
+      '多人合影',
+      '大家一起',
+      '一起出镜',
+    ]) || /[3-9三四五六七八九十]人/.test(compact);
+  
     const changeClothes = includesAny(compact, [
-      '穿这个', '穿这身', '穿这套', '穿这件',
-      '换装', '换这身', '换这套', '换这件', '换衣服',
-      '衣服', '服装', '穿搭', '造型',
-      'cos', 'cosplay', '扮成',
+      '穿这个',
+      '穿这身',
+      '穿这套',
+      '穿这件',
+      '换装',
+      '换这身',
+      '换这套',
+      '换这件',
+      '换衣服',
+      '衣服',
+      '服装',
+      '穿搭',
+      '造型',
+      'cos',
+      'cosplay',
+      '扮成',
     ]);
-
+  
     const changePose = includesAny(compact, [
-      '姿势', '动作', '表情', '站着', '坐着', '回头', '叉腰',
-      '比心', '伸手', '托脸', 'wink', '眨眼', '微笑', '歪头',
-      '看镜头', '回眸', '趴着', '蹲着',
+      '姿势',
+      '动作',
+      '表情',
+      '站着',
+      '坐着',
+      '回头',
+      '叉腰',
+      '比心',
+      '伸手',
+      '托脸',
+      'wink',
+      '眨眼',
+      '微笑',
+      '歪头',
+      '看镜头',
+      '回眸',
+      '趴着',
+      '蹲着',
     ]);
-
+  
     const useTodayOutfit = compact === '' ||
       includesAny(compact, [
-        '看看你', '看下你', '看一下你',
-        '你长什么样', '你长啥样', '你的样子',
-        '今日穿搭', '今天穿搭', '今天这身', '今日这身',
+        '看看你',
+        '看下你',
+        '看一下你',
+        '你长什么样',
+        '你长啥样',
+        '你的样子',
+        '今日穿搭',
+        '今天穿搭',
+        '今天这身',
+        '今日这身',
       ]);
-
+  
     const hasReferenceStyleHint = includesAny(compact, [
-      '长这个', '长这样', '像这个', '像这样', '照这个', '按这个', '参考这个',
+      '长这个',
+      '长这样',
+      '像这个',
+      '像这样',
+      '照这个',
+      '按这个',
+      '参考这个',
     ]);
-
+  
     return {
       raw,
       compact,
       isGroupPhoto,
+      isMultiPersonGroupPhoto,
       changeClothes,
       changePose,
       useTodayOutfit,
@@ -733,10 +806,20 @@ class ImagePersonaManager {
       ? [
           `当前除${hasReferenceImage ? '参考图一' : '主角设定'}外，还有 ${extraReferenceCount} 张额外参考图。`,
           intent.isGroupPhoto
-            ? '额外参考图可作为同框对象、合照关系、合照姿势或同框风格参考。'
+            ? [
+                '这些额外参考图在合照模式下可以作为不同的同框对象、人物身份、服装、姿势、构图和风格参考。',
+                '如果有多张额外参考图，应尽量把每张额外参考图理解为一个独立同框对象或独立参考来源。',
+                '不要只使用其中一张额外参考图，也不要把多张参考图的人脸融合成一个人。',
+                '每个同框对象应保持各自独立身份、脸部特征、发型、服装特征和气质。',
+                '如果额外参考图是动漫、游戏、二次元、插画、头像、Q版、卡通角色，请将其真人化 / 写实化为真实人类同框对象。',
+                '动漫或游戏角色应转化为真实人类 cosplay 或真人电影感角色：保留发型、发色、服装、配色、标志性特征和气质，但身体必须是真实人类。',
+                '不要把动漫、游戏、二次元、头像参考生成玩偶、手办、毛绒玩具、贴纸、抱枕、立牌、Q版小人或非真人物件。',
+                '所有同框对象都必须作为真实人物出现在画面中，而不是道具。',
+                '所有人物需要出现在同一个真实空间里，光线、透视、色调、画风和相机焦段必须统一。',
+              ].join('\n')
             : '额外参考图只能作为服装、姿势、构图、风格、场景、道具参考，不要覆盖主角身份。',
           hasReferenceImage
-            ? '不要把额外参考图中的人物身份替换成主角，除非用户明确要求合照。'
+            ? '参考图一始终是 AI 自己的主体身份参考图。不要把额外参考图中的人物身份替换成 AI 自己，除非用户明确要求角色融合。'
             : '没有固定形象图时，额外参考图可以辅助构图、衣服、姿势，但主角仍应符合角色名称和人设。',
         ]
       : [];
@@ -747,21 +830,32 @@ class ImagePersonaManager {
       modeLines.push('【合照 / 同框模式】');
       modeLines.push('本次要求是合照 / 合影 / 同框。');
       modeLines.push('主角仍然是你自己。');
-      modeLines.push('如果提供了额外参考图或头像，可作为同框对象参考。');
-      modeLines.push('除非用户明确要求多人，否则最多只出现你和一位同框对象。');
-
-      modeLines.push('如果同框对象来自用户引用图、头像或额外参考图，需要先判断参考内容类型。');
-      modeLines.push('如果额外参考图是动漫角色、游戏角色、二次元头像、卡通形象、动物、非人形象或抽象头像，请将其真人化 / 拟人化为自然真实的人类同框对象。');
-      modeLines.push('真人化时保留其最有代表性的元素，例如发色、发型、服装颜色、配饰、气质、主题特征，但不要直接生成扁平动漫图、头像贴纸或非人怪物。');
-      modeLines.push('如果参考图是动物或非人角色，可转化为具有对应主题元素的人类角色，例如猫耳发饰、同色服装、相似气质或主题配饰。');
-      modeLines.push('同框对象应自然融入同一真实画面，和主角处在同一个空间、同一光线、同一镜头下。');
-
-      if (intent.changeClothes) {
-        modeLines.push('本次合照同时包含换装 / 服装参考要求，额外参考图中的服装、配饰、颜色、材质可以用于你。');
+    
+      if (extraReferenceCount > 0) {
+        modeLines.push(`当前有 ${extraReferenceCount} 张额外参考图，可作为一个或多个同框对象参考。`);
+        modeLines.push('如果额外参考图中包含人物，应尽量保留每张图中人物的独立身份特征。');
+        modeLines.push('多张额外参考图可以对应多个同框人物，不要只生成其中一个。');
+      } else {
+        modeLines.push('如果没有额外人物参考图，则根据用户文字描述生成自然同框对象。');
       }
-
+    
+      if (intent.isMultiPersonGroupPhoto || extraReferenceCount >= 2) {
+        modeLines.push('本次允许多人合影。人物数量应根据用户要求和额外参考图数量自然决定。');
+        modeLines.push('多人合影中，每个人都应有清晰、独立、稳定的身份，不要复制脸，不要融合脸。');
+      }
+    
+      modeLines.push('合照中的人物应自然站位或坐位，有合理距离、遮挡关系、视线方向和肢体互动。');
+      modeLines.push('如果同框对象来自动漫、游戏、二次元头像、插画或卡通图，请把它真人化成真实人类角色，而不是玩偶、手办、贴纸、抱枕或道具。');
+      modeLines.push('动漫 / 游戏角色真人化时，应保留其标志性发型、发色、服装配色、角色气质和辨识特征，但面部、皮肤、身体、姿势都应是自然真实人类。');
+      modeLines.push('所有人物必须处在同一个场景中，使用统一光线、统一色调、统一画风和统一相机透视。');
+      modeLines.push('整体效果应像同一时间、同一地点、同一相机拍下的一张照片，而不是多张图拼接。');
+    
+      if (intent.changeClothes) {
+        modeLines.push('本次合照同时包含换装 / 服装参考要求，额外参考图中的服装、配饰、颜色、材质可以用于你或对应同框对象。');
+      }
+    
       if (intent.changePose) {
-        modeLines.push('本次合照同时包含姿势 / 动作 / 表情参考要求，额外参考图中的动作、镜头角度、构图可以用于你或合照构图。');
+        modeLines.push('本次合照同时包含姿势 / 动作 / 表情参考要求，额外参考图中的动作、镜头角度、构图可以用于你、同框对象或整体合照构图。');
       }
     } else if (intent.changeClothes && intent.changePose) {
       modeLines.push('【换衣服 + 改姿势模式】');
@@ -814,13 +908,17 @@ class ImagePersonaManager {
     const outputConstraintLines = intent.isGroupPhoto
       ? [
           '【生成要求】',
-          '1. 你必须是画面主角之一。',
-          '2. 如果有同框对象，同框对象数量尽量控制在 1 人。',
-          '3. 整张图像应像真实拍下的一张合照，不要多视角，不要拼图，不要分镜。',
-          '4. 不要文字水印，不要角色设定图，不要多人复制脸。',
-          '5. 画面自然、统一、真实。',
+          '1. 你必须是画面主角之一，且身份来自参考图一或角色设定。',
+          '2. 如果有多张额外参考图，允许出现多位同框对象；每位同框对象都应保持独立身份，不要融合脸，不要复制脸。',
+          '3. 人物数量应符合用户要求和参考图数量；不要因为有多张参考图却只生成一个同框对象。',
+          '4. 所有人物必须在同一个完整场景中，自然站位或坐位，姿势协调，比例合理，透视一致。',
+          '5. 人物之间要有自然互动，例如并肩、靠近、一起看镜头、轻微倾身、自然手势，但不要肢体扭曲。',
+          '6. 统一整体风格、光线方向、色彩、清晰度、镜头焦段和画面质感，不要像拼贴或抠图合成。',
+          '7. 整张图像应像真实拍下的一张自然合照，不要多视角，不要拼图，不要分镜。',
+          '8. 如果参考图中有动漫、游戏、二次元、卡通头像或插画角色，必须将其真人化为真实人类同框对象，不要生成玩偶、手办、毛绒玩具、抱枕、贴纸、立牌或 Q 版小人。',
+          '9. 不要文字水印，不要角色设定图，不要多人复制脸。',
           '',
-          'single image, natural photo, group selfie or close photo, coherent composition, no collage, no split screen, no character sheet, no watermark, no text',
+          'single coherent group photo, natural group selfie, multiple distinct real human people if references are provided, anime or game characters must be humanized into realistic live-action human cosplay characters, consistent lighting, consistent style, same camera perspective, natural poses, believable spatial relationship, no doll, no toy, no plush toy, no figurine, no chibi, no sticker, no pillow, no standee, no collage, no split screen, no character sheet, no face merging, no duplicated faces, no watermark, no text',
         ]
       : [
           '【生成要求】',
@@ -832,7 +930,7 @@ class ImagePersonaManager {
           '',
           'single image, natural selfie photo, complete and unified scene, no collage, no grid, no split screen, no character sheet, no multiple views, no watermark, no text',
         ];
-
+    
     return [
       `这是 ${botName} 的自拍照片。`,
 

@@ -291,6 +291,7 @@ function buildTestImagePromptWithReferences (
     extraReferenceCount: number;
     intent?: {
       isGroupPhoto: boolean;
+      isMultiPersonGroupPhoto?: boolean;
       changeClothes: boolean;
       changePose: boolean;
       useTodayOutfit: boolean;
@@ -313,19 +314,36 @@ function buildTestImagePromptWithReferences (
   if (intent?.isGroupPhoto) {
     lines.push(
       '【合照模式】',
-      '1. 参考图一是主角本人。',
-      '2. 允许出现同框人物，但参考图一仍然是主角。',
-      '3. 其他参考图中的人物可以作为同框对象或场景参考。',
-      '4. 不要把其他参考图的人替换成主角。',
-      '5. 画面应像真实合照，不要拼图，不要多视角。'
+      '1. 参考图一是主角本人，必须保持同一个人、同一张脸、同一身份、同一发型气质。',
+      '2. 允许出现多个同框人物，不再限制为单个同框对象。',
+      '3. 除参考图一外，每张额外参考图都可以作为一个独立同框对象、服装、姿势、构图或风格参考。',
+      '4. 如果额外参考图有多张，不要只使用其中一张；应尽量把多张额外参考图中的人物分别作为不同同框对象。',
+      '5. 不要把其他参考图的人替换成主角，也不要把多个人脸融合成一个人。',
+      '6. 每个同框人物都应保持独立身份、脸部特征、发型、服装特征和气质。',
+      '7. 所有人物必须处在同一个真实空间里，光线、色调、画风、清晰度和镜头透视统一。',
+      '8. 姿势要协调自然，有合理站位、视线方向、遮挡关系和互动。',
+      '9. 画面应像真实拍下的一张合照，不要拼图，不要多视角，不要分镜，不要角色设定图。'
     );
+
+    if (intent.isMultiPersonGroupPhoto || options.extraReferenceCount >= 2) {
+      lines.push(
+        '',
+        '【多人合影补充】',
+        '1. 本次允许多人合影。',
+        '2. 人物数量应根据用户要求和额外参考图数量自然决定。',
+        '3. 多人合影中不要复制同一张脸，不要把多个人融合成一个人。',
+        '4. 多人站位或坐位要自然，人物比例要一致，肢体不能扭曲。',
+        '5. 整体要像同一时间、同一地点、同一相机拍下的照片。'
+      );
+    }
   } else if (intent?.changeClothes) {
     lines.push(
       '【改衣服 / 改穿搭模式】',
       '1. 参考图一是唯一主体身份参考图，必须保持同一个人。',
       '2. 其他参考图只用于服装、配饰、颜色、材质、风格参考。',
       '3. 不要把其他参考图中的人物当成主角。',
-      '4. 不要改变参考图一的脸、发型、发色和身份。'
+      '4. 不要改变参考图一的脸、发型、发色和身份。',
+      '5. 如果有多张额外参考图，可以分别参考不同服装、材质、配饰或整体风格，但不要融合人物身份。'
     );
   } else if (intent?.changePose) {
     lines.push(
@@ -333,7 +351,8 @@ function buildTestImagePromptWithReferences (
       '1. 参考图一是唯一主体身份参考图，必须保持同一个人。',
       '2. 其他参考图只用于姿势、动作、镜头角度、构图参考。',
       '3. 不要把其他参考图中的人物当成主角。',
-      '4. 不要改变参考图一的脸、发型、发色和身份。'
+      '4. 不要改变参考图一的脸、发型、发色和身份。',
+      '5. 姿势要自然协调，身体比例合理，不要肢体扭曲。'
     );
   } else if (intent?.useTodayOutfit) {
     lines.push(
@@ -341,7 +360,8 @@ function buildTestImagePromptWithReferences (
       '1. 参考图一是唯一主体身份参考图，必须保持同一个人。',
       '2. 优先使用参考图一的今日穿搭和日常状态。',
       '3. 其他参考图只用于氛围、构图、风格参考。',
-      '4. 不要把其他参考图中的人物当成主角。'
+      '4. 不要把其他参考图中的人物当成主角。',
+      '5. 整体风格、光线、色调和镜头透视需要统一。'
     );
   } else {
     lines.push(
@@ -349,7 +369,8 @@ function buildTestImagePromptWithReferences (
       '1. 参考图一是唯一主体身份参考图，必须保持同一个人。',
       '2. 其他参考图只用于服装、姿势、构图、风格、场景参考。',
       '3. 不要把其他参考图中的人物当成主角。',
-      '4. 不要改变参考图一的脸、发型、发色和身份。'
+      '4. 不要改变参考图一的脸、发型、发色和身份。',
+      '5. 如果有多张额外参考图，可以综合参考风格、场景、构图和姿势，但主体身份仍然只能来自参考图一。'
     );
   }
 
@@ -357,18 +378,39 @@ function buildTestImagePromptWithReferences (
     lines.push(
       '',
       `当前除参考图一外，还有 ${options.extraReferenceCount} 张额外参考图。`,
-      '这些额外参考图只能作为辅助参考，不能抢主体。'
+      intent?.isGroupPhoto
+        ? '合照模式下，这些额外参考图可以分别作为不同同框对象或不同参考来源；不要只使用其中一张，也不要融合多个人脸。'
+        : '这些额外参考图只能作为辅助参考，不能抢主体。',
+      intent?.isGroupPhoto
+        ? '请尽量保留每张额外参考图中人物或视觉元素的独立特征，并把它们统一到同一个自然场景中。'
+        : '请把所有参考信息自然融合到单张完整图像里，保持统一风格。'
     );
   }
 
   lines.push(
     '',
+    '【统一风格要求】',
+    '- 所有参考来源必须融合成一张自然、完整、统一的图像。',
+    '- 光线方向、色彩、画风、清晰度、镜头焦段、透视关系必须一致。',
+    '- 不要让画面看起来像抠图、贴图、拼接、拼贴或多张图混排。',
+    '- 人物之间需要有合理空间关系、遮挡关系、比例关系和视线方向。',
+    '- 姿势要协调自然，手脚和肢体不能扭曲。',
+    '',
     '【生成要求】',
     '- 单张完整图像。',
-    intent?.isGroupPhoto ? '- 允许合照，但仍要保证参考图一是主角。' : '- 只有一个主角，主角必须来自参考图一。',
+    intent?.isGroupPhoto
+      ? '- 允许多人合照，但仍要保证参考图一是主角之一。'
+      : '- 只有一个主角，主角必须来自参考图一。',
+    intent?.isGroupPhoto
+      ? '- 如果有多张额外参考图，允许生成多个不同同框对象，不要只生成一个对象。'
+      : '- 额外参考图不能替换主角身份。',
     '- 不要拼图，不要分镜，不要多视角，不要角色设定图。',
     '- 不要文字，不要水印。',
     '- 画面自然、统一、完整。',
+    '',
+    intent?.isGroupPhoto
+      ? 'single coherent group photo, natural group selfie, multiple distinct people if references are provided, consistent lighting, consistent style, same camera perspective, natural poses, believable spatial relationship, no collage, no split screen, no character sheet, no face merging, no duplicated faces, no watermark, no text'
+      : 'single coherent natural photo, consistent lighting, consistent style, same camera perspective, natural pose, no collage, no split screen, no character sheet, no watermark, no text',
     '',
     '【用户测试提示词】',
     rawPrompt || '看着镜头自然自拍'
