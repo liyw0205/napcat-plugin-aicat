@@ -41,7 +41,13 @@ mv dist/index.mjs index.mjs
 - `vite.config.ts` 以 `src/index.ts` 为库入口，输出 `dist/index.mjs`。
 - `tsconfig.json` 开启 `strict`，目标为 `ESNext`，模块解析为 `bundler`。
 
-当前没有 `test`、`lint`、`typecheck` 脚本。阶段开发时，至少要跑 `npm run build` 作为最低验证；涉及类型或公共接口时，优先补充专门的验证脚本。
+当前没有全量 `test`、`lint`、`typecheck` 脚本。已建立最低配置验证脚本：
+
+```bash
+npm run verify:config
+```
+
+该脚本只覆盖可脱离 NapCat 运行时的配置默认值与归一化模块。阶段开发时，至少要跑 `npm run build` 作为最低验证；涉及配置归一化时同时跑 `npm run verify:config`。全量 `tsc --noEmit` 目前仍受 `napcat-types` 子路径源码和既有类型债影响，不能直接作为通过门禁。
 
 ## 3. 生命周期与主流程
 
@@ -85,7 +91,9 @@ mv dist/index.mjs index.mjs
 
 - 主配置保存前会把 `models_cache` 抽离到独立 JSON，只保留 `models_cache_path`。
 - 修改配置保存逻辑时，必须验证 Web 面板、群聊指令、NapCat 配置页三种入口不会互相覆盖关键字段。
-- `webEnable` 默认值在 `src/config.ts` 与配置 UI 中存在差异，后续阶段需要明确首次安装期望。
+- `webEnable` 默认值已在 `src/config.ts` 与配置 UI 中统一为 `false`，首次安装默认不启动 Web 面板。
+- Web 配置保存带 `_configRevision` 乐观锁；涉及渠道或模型优先级的提交缺少版本或版本过旧都会返回 409，避免静默覆盖其他入口的新配置。
+- Web 配置保存会经过统一归一化，入站 `models_cache` 不再写回独立缓存文件；模型缓存只应由拉取模型接口写入。
 
 ## 5. 扩展规则
 
@@ -196,8 +204,8 @@ fix(stage-2): ...
 
 后续阶段优先验证：
 
-1. 配置持久化：Web 面板、NapCat 配置页、群聊指令是否会互相覆盖渠道、优先级、缓存路径。
-2. Web 默认暴露：`webEnable` 默认值差异、`webToken=changeme`、监听 `0.0.0.0` 的首次安装行为。
-3. 自动切换模型：`autoSwitchModel` 配置是否真实控制 AI fallback。
-4. AI 工具权限：普通用户不得越权调用 owner-only API、定时任务、检测器、配置修改能力。
-5. 生图代理字段：`proxy` 已进入配置和适配器构造，但 `BaseImageAdapter.fetchRaw` 目前未实际使用代理。
+1. 自动切换模型：`autoSwitchModel` 配置是否真实控制 AI fallback。
+2. AI 工具权限：普通用户不得越权调用 owner-only API、定时任务、检测器、配置修改能力。
+3. 生图代理字段：`proxy` 已进入配置和适配器构造，但 `BaseImageAdapter.fetchRaw` 目前未实际使用代理。
+4. Web 默认暴露剩余项：首次安装已默认关闭 Web，但 `webToken=changeme` 与监听 `0.0.0.0` 仍需后续明确策略。
+5. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。

@@ -3,6 +3,7 @@ import type { PluginLogger } from 'napcat-types/napcat-onebot/network/plugin-man
 import type { NetworkAdapterConfig } from 'napcat-types/napcat-onebot/config/config';
 import type { PluginConfig } from '../types';
 import { DEFAULT_PLUGIN_CONFIG } from '../config';
+import { normalizePluginConfig } from './config-normalizer';
 import { startWebServer, stopWebServer } from './web-server';
 import fs from 'fs';
 import path from 'path';
@@ -11,6 +12,47 @@ import {
   stripModelCachesFromConfig,
   mergeModelCachesIntoConfig,
 } from './model-cache-store';
+
+const WEB_CONFIG_REVISION_KEY = '_configRevision';
+const WEB_CONFIG_REVISION_GUARDED_KEYS = new Set([
+  'chatChannels',
+  'imageChannels',
+  'enabledChatModelPriority',
+  'enabledImageModelPriority',
+]);
+
+function stripRuntimeConfigMeta<T extends Record<string, unknown>> (input: T): T {
+  const cloned = { ...(input || {}) };
+  delete cloned[WEB_CONFIG_REVISION_KEY];
+  return cloned as T;
+}
+
+function getIncomingConfigRevision (patch: Record<string, unknown>): number | null {
+  const raw = patch[WEB_CONFIG_REVISION_KEY];
+  if (raw === undefined || raw === null || raw === '') return null;
+
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+}
+
+function touchesRevisionGuardedConfig (patch: Record<string, unknown>): boolean {
+  return Object.keys(patch).some(key => WEB_CONFIG_REVISION_GUARDED_KEYS.has(key));
+}
+
+function createConfigConflictError (
+  incomingRevision: number | null,
+  currentRevision: number
+): Error & { code: 'CONFIG_CONFLICT'; currentRevision: number; incomingRevision: number; } {
+  const incomingText = incomingRevision === null ? '缺失' : String(incomingRevision);
+  const error = new Error(
+    `配置已被其他入口更新或提交缺少版本，请刷新 Web 面板后重试。当前版本: ${currentRevision}，提交版本: ${incomingText}`
+  ) as Error & { code: 'CONFIG_CONFLICT'; currentRevision: number; incomingRevision: number; };
+
+  error.code = 'CONFIG_CONFLICT';
+  error.currentRevision = currentRevision;
+  error.incomingRevision = incomingRevision ?? -1;
+  return error;
+}
 
 class PluginState {
   logger: PluginLogger | null = null;
@@ -23,6 +65,7 @@ class PluginState {
   private webMonitorInterval: ReturnType<typeof setInterval> | null = null;
   private lastWebSignature = '';
   private runtimeConfigSyncer: (() => void) | null = null;
+  private configRevision = 0;
 
   constructor () {
     this.startWebMonitor();
@@ -67,20 +110,8 @@ class PluginState {
     startWebServer({
       port,
       token,
-      getConfig: () => mergeModelCachesIntoConfig(this.config),
-      setConfig: patch => {
-        this.config = {
-          ...this.config,
-          ...(patch as Partial<PluginConfig>),
-        } as PluginConfig;
-
-        this.runRuntimeConfigSyncer();
-        this.saveConfig();
-        this.lastWebSignature = '';
-        this.syncWebServer();
-
-        return mergeModelCachesIntoConfig(this.config);
-      },
+      getConfig: () => this.getWebConfigSnapshot(),
+      setConfig: patch => this.setWebConfigPatch(patch),
       log: (level, msg) => this.log(level, msg),
     });
   }
@@ -131,6 +162,36 @@ class PluginState {
     this.saveConfig();
   }
 
+  getWebConfigSnapshot (): PluginConfig {
+    return {
+      ...mergeModelCachesIntoConfig(this.config),
+      [WEB_CONFIG_REVISION_KEY]: this.configRevision,
+    } as PluginConfig;
+  }
+
+  setWebConfigPatch (patch: Record<string, unknown>): PluginConfig {
+    const incomingRevision = getIncomingConfigRevision(patch);
+
+    if (incomingRevision === null && touchesRevisionGuardedConfig(patch)) {
+      throw createConfigConflictError(null, this.configRevision);
+    }
+
+    if (incomingRevision !== null && incomingRevision !== this.configRevision) {
+      throw createConfigConflictError(incomingRevision, this.configRevision);
+    }
+
+    const base = stripRuntimeConfigMeta(this.config as unknown as Record<string, unknown>);
+    const cleanPatch = stripRuntimeConfigMeta(patch);
+
+    this.config = normalizePluginConfig({
+      ...base,
+      ...cleanPatch,
+    });
+
+    this.saveConfig();
+    return this.getWebConfigSnapshot();
+  }
+
   saveConfig (): void {
     this.runRuntimeConfigSyncer();
 
@@ -150,9 +211,11 @@ class PluginState {
        * 1. 如果运行时临时带了 models_cache，先写入独立 JSON
        * 2. 主配置保存前剥离 models_cache，只保留 models_cache_path
        */
-      extractAndPersistModelCaches(this.config);
+      const configForSave = stripRuntimeConfigMeta(this.config as unknown as Record<string, unknown>) as unknown as PluginConfig;
 
-      const stripped = stripModelCachesFromConfig(this.config);
+      extractAndPersistModelCaches(configForSave);
+
+      const stripped = stripModelCachesFromConfig(configForSave);
 
       fs.writeFileSync(resolved, JSON.stringify(stripped, null, 2), 'utf-8');
 
@@ -160,6 +223,7 @@ class PluginState {
        * 保证运行时也不持有大 models_cache
        */
       this.config = stripped as PluginConfig;
+      this.configRevision++;
     } catch (e) {
       this.log('error', `保存配置失败: ${String(e)}`);
     }

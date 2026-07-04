@@ -46,6 +46,15 @@ function toPort (value: unknown, fallback: number): number {
   return n;
 }
 
+function normalizeBaseUrl (url: string): string {
+  let v = String(url || '').trim().replace(/\/+$/, '');
+  v = v.replace(/\/v1($|\/.*$)/i, '');
+  v = v.replace(/\/chat\/completions$/i, '');
+  v = v.replace(/\/images\/generations$/i, '');
+  v = v.replace(/\/images\/edits$/i, '');
+  return v;
+}
+
 function normalizeGlobalImageTimeoutMs (value: unknown): number {
   const n = Number(value);
 
@@ -145,7 +154,7 @@ function normalizeChatChannels (channels: unknown): ChannelConfig[] {
 
       return {
         name: String(c.name || '').trim(),
-        base_url: String(c.base_url || '').trim(),
+        base_url: normalizeBaseUrl(String(c.base_url || '')),
         api_key: String(c.api_key || '').trim(),
 
         /**
@@ -180,7 +189,7 @@ function normalizeImageChannels (channels: unknown): ImageChannelConfig[] {
 
       return {
         name: String(c.name || '').trim(),
-        base_url: String(c.base_url || '').trim(),
+        base_url: normalizeBaseUrl(String(c.base_url || '')),
         api_key: String(c.api_key || '').trim(),
         provider_type: (c.provider_type || 'openai') as ImageChannelConfig['provider_type'],
 

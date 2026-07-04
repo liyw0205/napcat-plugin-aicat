@@ -25,6 +25,8 @@
     "vite": "^6.0.0"
   },
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "verify:config": "tsc -p tsconfig.verify.json --pretty false",
+    "verify": "npm run verify:config && npm run build"
   }
 }

@@ -23,7 +23,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   disabledGroups: [],
   autoSwitchModel: true,
 
-  webEnable: true,
+  webEnable: false,
   webPort: 14514,
   webToken: 'changeme',
 

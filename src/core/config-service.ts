@@ -146,12 +146,7 @@ export function getWebConfig (): PluginConfig {
 }
 
 export function saveWebConfig (webInput: Record<string, unknown>): PluginConfig {
-  pluginState.config = cleanConfigForRuntime({
-    ...pluginState.config,
-    ...webInput,
-  });
-
-  pluginState.saveConfig();
+  pluginState.setWebConfigPatch(webInput);
   return getWebConfig();
 }
 

@@ -4,77 +4,94 @@
 
 ## 当前阶段
 
-阶段：`stage-0-docs`
+阶段：`stage-1-config-and-verification`
 
-目标：建立项目开发文档、分阶段多会话协作规则、进度文档和会话交接文档。
+目标：建立最低自动验证基线，修复配置持久化多入口覆盖风险，统一 Web 首次安装默认值。
 
 状态：已完成，验证通过，提交后结束本阶段。
 
 ## 本阶段完成内容
 
-- 使用主代理加两个只读子代理完成项目现状梳理。
-- 梳理了项目定位、目录职责、NapCat 生命周期、配置入口、运行时数据文件。
-- 建立了后续阶段开发规则：每阶段主代理负责整合，子代理负责独立分析或独立实现任务。
-- 建立了开源复用原则：成熟 npm/GitHub 方案优先，避免从零实现通用基础设施。
-- 建立了扩展指南：新增会话渠道、生图 Provider、AI 工具、群聊指令、Web API。
-- 记录了当前最高优先级技术风险。
-- 新增会话交接文档，供下一阶段直接继续。
+- 使用主代理加两个只读子代理完成配置保存链路与验证基线梳理。
+- 修复 Web 面板保存配置的旧状态覆盖风险：
+  - `/api/config` 返回 `_configRevision`。
+  - Web 保存时携带版本，若配置已被群聊指令、NapCat 配置页或其他 Web 页面更新，则返回 409。
+  - 涉及渠道或模型优先级的 Web 提交缺少 `_configRevision` 时也返回 409。
+  - 前端收到 409 后提示并自动重新加载最新配置。
+- Web 保存链路改为统一归一化：
+  - 通过 `normalizePluginConfig` 清洗入站配置。
+  - 入站 `models_cache` 不再写回缓存 JSON，避免旧 Web 页面覆盖模型缓存文件。
+  - `models_cache_path` 继续作为派生字段由保存链路重算。
+- 统一 Web 默认值：
+  - `DEFAULT_PLUGIN_CONFIG.webEnable` 从 `true` 改为 `false`，与 NapCat 配置 UI 默认值一致。
+  - 首次安装默认不启动 Web 面板。
+- 新增最低验证脚本：
+  - `npm run verify:config`：只类型检查可脱离 NapCat 运行时的配置默认值与归一化模块。
+  - `npm run verify`：执行 `verify:config` 后运行构建。
 
 ## 子代理协作记录
 
 | 子代理 | 类型 | 任务 | 结果 |
 |---|---|---|---|
-| Russell | explorer | 梳理项目定位、入口、配置、文档缺口、技术风险 | 已完成，只读分析 |
-| Popper | explorer | 梳理已有依赖、复用方案、后续复用原则 | 已完成，只读分析 |
+| Tesla | explorer | 只读梳理配置保存链路 | 确认 Web 全量/浅合并保存存在 channels、priority、models_cache 覆盖风险 |
+| Poincare | explorer | 只读梳理验证基线 | 确认全量 `tsc --noEmit` 暂不可作为门禁，建议先做配置纯模块验证 |
 
 ## 当前代码状态
 
-本阶段只新增/更新文档，不改运行时代码。
+本阶段预期变更：
 
-预期变更：
-
+- `package.json`
+- `tsconfig.verify.json`
+- `src/config.ts`
+- `src/core/admin-assets.ts`
+- `src/core/config-normalizer.ts`
+- `src/core/config-service.ts`
+- `src/core/state.ts`
+- `src/core/web-server.ts`
 - `docs/DEVELOPMENT.md`
 - `docs/PROGRESS.md`
 - `docs/HANDOFF.md`
-- `README.md`
 
 ## 验证记录
 
-当前阶段为文档阶段，已执行：
+已执行：
 
 ```bash
-npm install --no-package-lock
+npm run verify:config
 npm run build
-git status --short
 ```
 
 结果：
 
-- `npm install --no-package-lock` 成功，未生成提交用 lockfile。
+- `npm run verify:config` 成功。
 - `npm run build` 成功，Vite 输出 `dist/index.mjs`。
-- `git status --short` 仅显示本阶段预期文档变更：`README.md` 和 `docs/`。
+
+补充验证结论：
+
+- 直接运行 `npx tsc --noEmit` 当前失败，主要原因是 `napcat-types` 子路径导入解析到包内 `.ts` 源码，以及项目内既有类型债。该问题已记录为后续阶段风险，不作为本阶段门禁。
 
 ## 未完成事项
 
-- 尚未修复任何运行时风险。
-- 尚未新增测试、lint、typecheck 脚本。
+- 尚未建立全量 typecheck、lint 或测试框架。
 - 尚未验证 NapCat 实机加载。
+- 尚未拆分 Web 配置专用 API；当前通过 `_configRevision` 阻止旧页面静默覆盖。
+- 尚未修复 `autoSwitchModel`、AI 工具权限回归、生图代理实际生效问题。
 
 ## 风险队列
 
-1. 配置持久化可能在多入口保存时丢失渠道、模型优先级或模型缓存路径。
-2. Web 默认开关和 Token 默认值存在安全默认值不一致问题。
-3. `autoSwitchModel` 语义需要验证是否真实控制 fallback。
-4. AI 工具权限需要集成级回归，防止普通用户越权。
-5. 生图 `proxy` 字段目前可能只是配置传递，未实际生效。
+1. `autoSwitchModel` 配置项需要验证是否真实控制 AI fallback。
+2. AI 工具权限需要集成级回归，防止普通用户越权。
+3. 生图 `proxy` 字段目前可能只是配置传递，未实际生效。
+4. Web 默认启动已关闭，但 `webToken=changeme` 与监听 `0.0.0.0` 的启用后策略仍需明确。
+5. 全量 `tsc --noEmit` 仍失败，需要后续拆解 NapCat 类型导入和项目类型债。
 
 ## 下阶段建议
 
-阶段：`stage-1-config-and-verification`
+阶段：`stage-2-ai-fallback-and-permissions`
 
 建议目标：
 
-1. 建立最低自动验证基线，例如 `typecheck` 或最小单元验证脚本。
-2. 验证并修复配置持久化多入口覆盖风险。
-3. 明确 Web 首次安装默认值，必要时调整默认配置或配置 UI。
+1. 验证并修复 `autoSwitchModel` 是否真实控制 AI fallback。
+2. 梳理 AI 工具权限边界，至少覆盖 owner-only API、自定义指令、定时任务、用户检测器、生图工具。
+3. 继续扩大可通过的自动验证范围。
 4. 更新 `docs/PROGRESS.md` 和 `docs/HANDOFF.md`，完成阶段 commit。

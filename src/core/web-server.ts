@@ -92,6 +92,18 @@ function checkAuth (
   return getTokenFromRequest(req, url) === token;
 }
 
+function isConfigConflictError (error: unknown): error is Error & {
+  code: 'CONFIG_CONFLICT';
+  currentRevision?: number;
+  incomingRevision?: number;
+} {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    (error as { code?: unknown; }).code === 'CONFIG_CONFLICT'
+  );
+}
+
 function normalizeBaseUrl (url: string): string {
   let v = String(url || '').trim().replace(/\/+$/, '');
   v = v.replace(/\/v1($|\/.*$)/i, '');
@@ -609,7 +621,25 @@ export function startWebServer (options: WebServerOptions): void {
           return;
         }
 
-        const next = options.setConfig(patch);
+        let next: PluginConfig;
+
+        try {
+          next = options.setConfig(patch);
+        } catch (error) {
+          if (isConfigConflictError(error)) {
+            sendJson(res, 409, {
+              success: false,
+              code: error.code,
+              error: error.message,
+              current_revision: error.currentRevision,
+              incoming_revision: error.incomingRevision,
+            });
+            return;
+          }
+
+          throw error;
+        }
+
         sendJson(res, 200, {
           success: true,
           data: next,

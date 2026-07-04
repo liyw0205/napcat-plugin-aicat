@@ -2504,6 +2504,13 @@ async function save(data) {
     fillForm();
     status('已保存', true);
   } catch (e) {
+    if (e.status === 409) {
+      status('配置已被其他入口修改，正在刷新...', false);
+      alert(e.message || '配置已被其他入口修改，请刷新后重试');
+      await load();
+      return;
+    }
+
     status(e.message, false);
     alert(e.message);
   }
