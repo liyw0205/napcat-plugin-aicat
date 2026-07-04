@@ -87,18 +87,26 @@ export const ADMIN_REQUIRED_APIS = new Set([
   'set_group_special_title',
   'set_group_name',
   'set_group_portrait',
+  'set_group_card',
   'set_group_add_option',
   'set_group_bot_add_option',
   'set_group_search',
   'set_essence_msg',
   'delete_essence_msg',
+  'delete_msg',
   'send_group_notice',
   '_send_group_notice',
   '_delete_group_notice',
+  'upload_group_file',
   'delete_group_file',
+  'create_group_file_folder',
   'delete_group_folder',
+  'move_group_file',
+  'trans_group_file',
+  'rename_group_file',
   'set_group_todo',
   'set_group_add_request',
+  'set_group_remark',
 ]);
 
 export const OWNER_ONLY_APIS = new Set([
@@ -145,15 +153,18 @@ export const OWNER_ONLY_TOOLS = new Set([
 export const OWNER_ONLY_CUSTOM_TOOLS = new Set([
   'add_custom_command',
   'remove_custom_command',
+  'list_custom_commands',
   'toggle_custom_command',
 
   'add_scheduled_task',
   'remove_scheduled_task',
+  'list_scheduled_tasks',
   'toggle_scheduled_task',
   'run_scheduled_task_now',
 
   'add_user_watcher',
   'remove_user_watcher',
+  'list_user_watchers',
   'toggle_user_watcher',
 ]);
 

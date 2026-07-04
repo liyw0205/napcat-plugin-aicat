@@ -5,6 +5,7 @@
   },
   "include": [
     "src/config.ts",
-    "src/core/config-normalizer.ts"
+    "src/core/config-normalizer.ts",
+    "src/tools/ai-permissions.ts"
   ]
 }

@@ -204,8 +204,7 @@ fix(stage-2): ...
 
 后续阶段优先验证：
 
-1. 自动切换模型：`autoSwitchModel` 配置是否真实控制 AI fallback。
-2. AI 工具权限：普通用户不得越权调用 owner-only API、定时任务、检测器、配置修改能力。
-3. 生图代理字段：`proxy` 已进入配置和适配器构造，但 `BaseImageAdapter.fetchRaw` 目前未实际使用代理。
-4. Web 默认暴露剩余项：首次安装已默认关闭 Web，但 `webToken=changeme` 与监听 `0.0.0.0` 仍需后续明确策略。
-5. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。
+1. 生图代理字段：`proxy` 已进入配置和适配器构造，但 `BaseImageAdapter.fetchRaw` 目前未实际使用代理。
+2. Web 默认暴露剩余项：首次安装已默认关闭 Web，但 `webToken=changeme` 与监听 `0.0.0.0` 仍需后续明确策略。
+3. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。
+4. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。

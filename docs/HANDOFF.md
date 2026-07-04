@@ -29,52 +29,60 @@
 - Web 保存链路改为统一归一化，入站 `models_cache` 不再覆盖独立缓存 JSON。
 - `DEFAULT_PLUGIN_CONFIG.webEnable` 已改为 `false`，与 NapCat 配置 UI 默认值一致。
 - 新增 `tsconfig.verify.json`、`npm run verify:config` 和 `npm run verify`。
+
+已完成 `stage-2-ai-fallback-and-permissions`：
+
+- `autoSwitchModel=false` 时 AI 对话只请求第一优先级模型，不再 fallback 到后续模型。
+- 非主人用户不再向模型暴露 owner-only 工具。
+- `list_custom_commands`、`list_scheduled_tasks`、`list_user_watchers` 纳入 owner-only 工具。
+- 普通用户的 `call_api` 被约束到当前群或当前用户，不能跨群、不能在私聊操作群、不能让机器人私聊其他人。
+- 更多群状态修改 API 纳入管理员权限要求。
+- 普通用户消息记录查询限定当前群，私聊不允许查询全局消息记录。
+- 新增 `src/tools/ai-permissions.ts` 并加入 `npm run verify:config` 验证范围。
 - 执行 `npm run verify:config` 和 `npm run build`，均通过。
 
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
-- 配置纯模块验证命令为 `npm run verify:config`。
+- 配置与权限纯模块验证命令为 `npm run verify:config`。
 - 运行期依赖当前只有 `napcat-types`。
 - Web 服务由 `src/core/state.ts` 定时同步，路由在 `src/core/web-server.ts`。
 - Web 配置保存入口是 `pluginState.setWebConfigPatch()`。
 - Web 配置版本字段为 `_configRevision`，只用于运行期冲突检测，不写入配置文件。
 - 配置保存会抽离 `models_cache` 到 `model-cache/` 独立 JSON；Web 保存不会再用入站 `models_cache` 覆盖缓存文件。
+- AI 工具权限纯 helper 在 `src/tools/ai-permissions.ts`。
 - 生图 Provider 走 `src/image/adapters/*` + `src/image/generator.ts` 的 adapter/fallback 模式。
 
 ## 已知风险
 
 优先级从高到低：
 
-1. `autoSwitchModel` 配置项存在，但需要确认 AI handler 是否按该开关控制失败切换。
-2. AI 工具覆盖 OneBot API、定时任务、用户检测器、生图等能力，普通用户权限边界需要集成验证。
-3. 生图代理：`proxy` 字段已传入适配器，但 `BaseImageAdapter.fetchRaw` 当前直接调用 `fetch`。
-4. Web 启用后仍监听 `0.0.0.0`，且默认 Token 仍为 `changeme`；首次安装默认关闭已降低默认暴露风险。
-5. 全量 `npx tsc --noEmit` 当前失败，不能直接作为门禁。已知原因包括 `napcat-types` 子路径源码导入、`src/image/adapters/*` 类型路径、`optimizeImagePrompt` 导入缺失、NapCat ActionMap 类型边界过窄等既有类型债。
+1. 生图代理：`proxy` 字段已传入适配器，但 `BaseImageAdapter.fetchRaw` 当前直接调用 `fetch`。
+2. Web 启用后仍监听 `0.0.0.0`，且默认 Token 仍为 `changeme`；首次安装默认关闭已降低默认暴露风险。
+3. 全量 `npx tsc --noEmit` 当前失败，不能直接作为门禁。已知原因包括 `napcat-types` 子路径源码导入、`src/image/adapters/*` 类型路径、`optimizeImagePrompt` 导入缺失、NapCat ActionMap 类型边界过窄等既有类型债。
+4. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-2-ai-fallback-and-permissions`
+推荐阶段名：`stage-3-image-proxy-and-web-hardening`
 
 建议完成范围：
 
-1. 子代理 A 只读梳理 `autoSwitchModel`：
-   - `src/handlers/ai-handler.ts`
-   - `src/tools/ai-client.ts`
-   - `src/core/config-service.ts`
-   - `src/core/channel-store.ts`
-2. 子代理 B 只读梳理 AI 工具权限：
-   - `src/handlers/ai-handler.ts`
-   - `src/tools/api-tools.ts`
-   - `src/tools/message-tools.ts`
-   - `src/tools/image-tools.ts`
-   - `src/managers/custom-commands.ts`
-   - `src/managers/scheduled-tasks.ts`
-   - `src/managers/user-watcher.ts`
+1. 子代理 A 只读梳理生图代理链路：
+   - `src/image/base-adapter.ts`
+   - `src/image/adapters/*`
+   - `src/image/generator.ts`
+   - `src/types.ts`
+2. 子代理 B 只读梳理 Web 启用安全策略：
+   - `src/config.ts`
+   - `src/core/plugin-config-ui.ts`
+   - `src/core/state.ts`
+   - `src/core/web-server.ts`
+   - `src/core/admin-assets.ts`
 3. 主代理基于子代理结论实施：
-   - 修复或明确 `autoSwitchModel` 行为。
-   - 补充权限回归验证或最小可复现脚本。
+   - 修复或明确生图代理行为。
+   - 明确 Web 启用后监听地址与默认 Token 策略。
    - 跑 `npm run verify:config` 和 `npm run build`。
    - 更新进度与交接文档。
    - git commit 结束阶段。
@@ -104,5 +112,5 @@
 建议 commit message：
 
 ```text
-fix(stage-2): respect auto switch model setting
+fix(stage-3): honor image proxy settings
 ```

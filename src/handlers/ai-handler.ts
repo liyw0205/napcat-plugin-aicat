@@ -6,8 +6,6 @@ import { modelMonitorManager } from '../managers/model-monitor';
 import { pluginState } from '../core/state';
 import {
   MAX_ROUNDS,
-  ADMIN_REQUIRED_APIS,
-  OWNER_ONLY_APIS,
   OWNER_ONLY_TOOLS,
   OWNER_ONLY_CUSTOM_TOOLS,
   generateSystemPrompt,
@@ -18,6 +16,7 @@ import { getWebTools, executeWebTool } from '../tools/web-tools';
 import { getMessageTools, executeMessageTool } from '../tools/message-tools';
 import { getImageTools, executeImageTool } from '../tools/image-tools';
 import { getMusicTools, executeMusicTool } from '../tools/music-tools';
+import { filterToolsForUser, validateApiToolPermission } from '../tools/ai-permissions';
 import { getCustomCommandTools, executeCustomCommandTool } from '../managers/custom-commands';
 import { getScheduledTaskTools, executeScheduledTaskTool } from '../managers/scheduled-tasks';
 import { getUserWatcherTools, executeUserWatcherTool } from '../managers/user-watcher';
@@ -619,8 +618,8 @@ function buildSystemPromptForAI (): string {
   ].join('\n');
 }
 
-function getAllTools (): Tool[] {
-  return [
+function getAllTools (isOwnerUser: boolean): Tool[] {
+  return filterToolsForUser([
     ...getApiTools(),
     ...getWebTools(),
     ...getMessageTools(),
@@ -629,18 +628,22 @@ function getAllTools (): Tool[] {
     ...getUserWatcherTools(),
     ...getMusicTools(),
     ...(pluginState.config.imageEnableLLMTool !== false ? getImageTools() : []),
-  ];
+  ], isOwnerUser);
 }
 
 async function requestWithFallback (
   configs: AIConfig[],
   messages: AIMessage[],
   tools: Tool[],
-  meta: { bot_id?: string; owner_ids?: string[]; user_id?: string; source?: string; prompt?: string; }
+  meta: { bot_id?: string; owner_ids?: string[]; user_id?: string; source?: string; prompt?: string; },
+  options: { autoSwitchModel: boolean }
 ): Promise<AIResponse> {
   let last: AIResponse = { choices: [], error: '未配置可用对话模型' };
+  const candidates = options.autoSwitchModel
+    ? configs
+    : configs.slice(0, 1);
 
-  for (const conf of configs) {
+  for (const conf of candidates) {
     const started = Date.now();
     const client = new AIClient(conf);
     client.setMeta(meta);
@@ -668,7 +671,11 @@ async function requestWithFallback (
     if (!res.error) return res;
 
     last = res;
-    pluginState.debug(`[AI] 模型请求失败，尝试下一个: ${conf.model} -> ${res.error}`);
+    if (options.autoSwitchModel) {
+      pluginState.debug(`[AI] 模型请求失败，尝试下一个: ${conf.model} -> ${res.error}`);
+    } else {
+      pluginState.debug(`[AI] 模型请求失败，自动切换已关闭: ${conf.model} -> ${res.error}`);
+    }
   }
 
   return last;
@@ -780,7 +787,7 @@ export async function handleAICommand (
     botId = loginInfo?.user_id ? String(loginInfo.user_id) : undefined;
   } catch {}
 
-  const tools = getAllTools();
+  const tools = getAllTools(userIsOwner);
 
   const messages: AIMessage[] = [
     { role: 'system', content: buildSystemPromptForAI() },
@@ -804,6 +811,9 @@ export async function handleAICommand (
         user_id: userId,
         source: event.message_type === 'group' ? 'group-ai' : 'private-ai',
         prompt: instruction,
+      },
+      {
+        autoSwitchModel: pluginState.config.autoSwitchModel !== false,
       }
     );
 
@@ -1066,16 +1076,15 @@ async function executeToolWithPermission (
   if (name === 'call_api') {
     const { action, params } = normalizeCallApiParams(args);
 
-    if (OWNER_ONLY_APIS.has(action) && !isOwnerUser) {
-      return { success: false, error: '该信息仅主人可查询喵～' };
-    }
+    const permissionError = validateApiToolPermission(action, params, {
+      currentGroupId: groupId,
+      isOwnerUser,
+      isAdmin: userPerm.is_admin,
+      userId,
+    });
 
-    if (ADMIN_REQUIRED_APIS.has(action) && !userPerm.is_admin) {
-      return { success: false, error: '你不是管理员喵～' };
-    }
-
-    if (ADMIN_REQUIRED_APIS.has(action) && params.group_id && groupId && String(params.group_id) !== groupId) {
-      return { success: false, error: '不能跨群操作喵～' };
+    if (permissionError) {
+      return permissionError;
     }
 
     if (!isOwnerUser && pluginState.config.safetyFilter !== false) {
@@ -1084,6 +1093,9 @@ async function executeToolWithPermission (
         return { success: false, error: getSafetyBlockMessage(dangerousType) };
       }
     }
+
+    args.action = action;
+    args.params = params;
   }
 
   if (isImageToolName(name)) {
@@ -1238,6 +1250,10 @@ async function executeMessageToolWithScope (
 ): Promise<ToolResult> {
   const queryGroupId = args.group_id as string | undefined;
 
+  if (!isOwnerUser && !currentGroupId) {
+    return { success: false, error: '私聊中不能查询全局消息记录喵～' };
+  }
+
   if (!isOwnerUser && queryGroupId && currentGroupId && queryGroupId !== currentGroupId) {
     return { success: false, error: '只能查询当前群的消息记录喵～' };
   }
@@ -1246,5 +1262,16 @@ async function executeMessageToolWithScope (
     args.group_id = currentGroupId;
   }
 
-  return executeMessageTool(name, args);
+  const result = executeMessageTool(name, args);
+
+  if (!isOwnerUser && name === 'get_message_by_id' && result.success) {
+    const data = (result.data || {}) as { group_id?: unknown; };
+    const messageGroupId = data.group_id ? String(data.group_id) : '';
+
+    if (messageGroupId && currentGroupId && messageGroupId !== currentGroupId) {
+      return { success: false, error: '只能查询当前群的消息记录喵～' };
+    }
+  }
+
+  return result;
 }
