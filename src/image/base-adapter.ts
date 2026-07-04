@@ -1,4 +1,5 @@
 import type { ImageGenerateRequest, ImageGenerateResult } from '../types';
+import { fetchWithProxy } from '../utils/proxy-fetch';
 
 export abstract class BaseImageAdapter {
   protected baseUrl: string;
@@ -16,7 +17,7 @@ export abstract class BaseImageAdapter {
   }
 
   protected async fetchRaw (url: string, init: RequestInit = {}): Promise<Response> {
-    return await fetch(url, init);
+    return await fetchWithProxy(url, init, this.proxy);
   }
 
   protected async postJson (url: string, body: unknown): Promise<Response> {

@@ -24,14 +24,20 @@ function b64ToBytes (b64: string): Uint8Array {
   return Uint8Array.from(Buffer.from(cleaned, 'base64'));
 }
 
-async function fetchImageUrl (url: string, timeout: number): Promise<Uint8Array | null> {
+type FetchRaw = (url: string, init?: RequestInit) => Promise<Response>;
+
+async function fetchImageUrl (
+  url: string,
+  timeout: number,
+  fetchRaw: FetchRaw
+): Promise<Uint8Array | null> {
   if (url.startsWith('data:image/')) return b64ToBytes(url);
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchRaw(url, {
       signal: controller.signal,
       headers: {
         'Accept': 'image/*,*/*',
@@ -49,7 +55,11 @@ async function fetchImageUrl (url: string, timeout: number): Promise<Uint8Array 
   }
 }
 
-async function extractOpenAIImages (data: unknown, timeout: number): Promise<Uint8Array[]> {
+async function extractOpenAIImages (
+  data: unknown,
+  timeout: number,
+  fetchRaw: FetchRaw
+): Promise<Uint8Array[]> {
   const result: Uint8Array[] = [];
   const record = data as { data?: { b64_json?: string; url?: string; }[]; };
 
@@ -60,7 +70,7 @@ async function extractOpenAIImages (data: unknown, timeout: number): Promise<Uin
     }
 
     if (item.url) {
-      const bytes = await fetchImageUrl(item.url, timeout);
+      const bytes = await fetchImageUrl(item.url, timeout, fetchRaw);
       if (bytes) result.push(bytes);
     }
   }
@@ -113,7 +123,11 @@ export class OpenAIImageAdapter extends BaseImageAdapter {
     }
 
     const data = await res.json();
-    const images = await extractOpenAIImages(data, this.timeout);
+    const images = await extractOpenAIImages(
+      data,
+      this.timeout,
+      (imageUrl, init) => this.fetchRaw(imageUrl, init)
+    );
 
     if (!images.length) return { error: '未生成任何图片' };
     return { images };
@@ -168,7 +182,11 @@ export class OpenAIImageAdapter extends BaseImageAdapter {
       }
 
       const data = await res.json();
-      const images = await extractOpenAIImages(data, this.timeout);
+      const images = await extractOpenAIImages(
+        data,
+        this.timeout,
+        (imageUrl, init) => this.fetchRaw(imageUrl, init)
+      );
 
       if (!images.length) return { error: '未生成任何图片' };
       return { images };

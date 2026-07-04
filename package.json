@@ -17,7 +17,8 @@
     "homepage": "https://github.com/liyw0205/napcat-plugin-lengxi"
   },
   "dependencies": {
-    "napcat-types": "0.0.9"
+    "napcat-types": "0.0.9",
+    "undici": "^6.27.0"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.0.0",

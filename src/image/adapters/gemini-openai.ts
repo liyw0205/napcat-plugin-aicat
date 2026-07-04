@@ -142,14 +142,20 @@ function extractImageUrlsFromText (text: string): {
   };
 }
 
-async function fetchImageUrl (url: string, timeout: number): Promise<Uint8Array | null> {
+type FetchRaw = (url: string, init?: RequestInit) => Promise<Response>;
+
+async function fetchImageUrl (
+  url: string,
+  timeout: number,
+  fetchRaw: FetchRaw
+): Promise<Uint8Array | null> {
   if (url.startsWith('data:image/')) return b64ToBytes(url);
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchRaw(url, {
       signal: controller.signal,
       redirect: 'follow',
       headers: {
@@ -336,7 +342,11 @@ export class GeminiOpenAIImageAdapter extends BaseImageAdapter {
     }
 
     for (const item of collected.urls) {
-      const bytes = await fetchImageUrl(item, this.timeout);
+      const bytes = await fetchImageUrl(
+        item,
+        this.timeout,
+        (imageUrl, init) => this.fetchRaw(imageUrl, init)
+      );
       if (bytes?.byteLength) images.push(bytes);
     }
 

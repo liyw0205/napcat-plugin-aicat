@@ -16,6 +16,7 @@ import {
   stripModelCachesFromConfig,
 } from './model-cache-store';
 import { fetchChatModelsForChannel, fetchImageModelsForChannel } from '../tools/model-discovery';
+import { normalizeProxyUrl } from '../utils/proxy-fetch';
 
 function uniq<T> (list: T[]): T[] {
   return Array.from(new Set(list));
@@ -109,7 +110,7 @@ export function normalizeImageChannelsUnified (channels: unknown): ImageChannelC
 
         enabled_models: normalizeModelInfos(c.enabled_models),
         timeout: Number(c.timeout || 180000),
-        proxy: c.proxy ? String(c.proxy) : undefined,
+        proxy: normalizeProxyUrl(c.proxy),
         capability_options: c.capability_options || {
           text_to_image: true,
           image_to_image: true,

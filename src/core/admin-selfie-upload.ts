@@ -16,9 +16,7 @@ export function getAdminSelfieUploadJs (): string {
       options.headers || {}
     );
 
-    const url = path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-
-    return fetch(url, Object.assign({}, options, { headers }))
+    return fetch(path, Object.assign({}, options, { headers }))
       .then(async r => {
         let d = {};
         try { d = await r.json(); } catch {}

@@ -1,5 +1,6 @@
 import type { ChannelConfig, ImageChannelConfig } from '../types';
 import { pluginState } from '../core/state';
+import { fetchWithProxy, normalizeProxyUrl } from '../utils/proxy-fetch';
 
 const DEFAULT_MODEL_DISCOVERY_TIMEOUT = 10000;
 const MIN_MODEL_DISCOVERY_TIMEOUT = 3000;
@@ -30,7 +31,8 @@ function normalizeTimeout (value: unknown): number {
 async function tryFetchJson (
   url: string,
   headers: Record<string, string>,
-  timeoutValue: unknown = DEFAULT_MODEL_DISCOVERY_TIMEOUT
+  timeoutValue: unknown = DEFAULT_MODEL_DISCOVERY_TIMEOUT,
+  proxy?: string
 ): Promise<unknown> {
   const timeout = normalizeTimeout(timeoutValue);
   const controller = new AbortController();
@@ -39,11 +41,11 @@ async function tryFetchJson (
   try {
     pluginState.debug(`[ModelDiscovery] 尝试拉取模型: ${url}，超时: ${timeout}ms`);
 
-    const res = await fetch(url, {
+    const res = await fetchWithProxy(url, {
       method: 'GET',
       headers,
       signal: controller.signal,
-    });
+    }, proxy);
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -102,7 +104,8 @@ async function fetchModels (
   baseUrl: string,
   apiKey: string,
   timeoutValue: unknown,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
+  proxy?: string
 ): Promise<string[]> {
   const base = normalizeBaseUrl(baseUrl);
   const timeout = normalizeTimeout(timeoutValue);
@@ -129,7 +132,7 @@ async function fetchModels (
 
   for (const url of candidates) {
     try {
-      const data = await tryFetchJson(url, headers, timeout);
+      const data = await tryFetchJson(url, headers, timeout, proxy);
       const models = extractModelIds(data);
 
       if (models.length > 0) {
@@ -168,7 +171,8 @@ export async function fetchImageModelsForChannel (channel: ImageChannelConfig): 
     channel.base_url,
     channel.api_key,
     channel.timeout,
-    extraHeaders
+    extraHeaders,
+    normalizeProxyUrl(channel.proxy)
   );
 
   return models.length ? models : (channel.models_cache || []);

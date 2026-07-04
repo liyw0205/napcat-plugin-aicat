@@ -227,6 +227,7 @@ mv dist/index.mjs index.mjs
 | `whitelistQQs` | 白名单 QQ |
 | `disabledGroups` | 禁用 AI 的群 |
 | `webEnable` | 是否启用 Web 管理面板 |
+| `webHost` | Web 管理面板监听地址，默认 `127.0.0.1` |
 | `webPort` | Web 管理面板端口 |
 | `webToken` | Web 管理面板访问 Token |
 
@@ -234,24 +235,25 @@ mv dist/index.mjs index.mjs
 
 ## 🌐 Web 管理面板
 
-如果启用了 Web 管理面板：
+Web 管理面板默认关闭。启用前必须把 `webToken` 改成非空且不是 `changeme` 的强随机 Token，否则服务会拒绝启动。
 
 ```text
 webEnable = true
+webHost = 127.0.0.1
 webPort = 14514
-webToken = changeme
+webToken = 请改成强随机Token
 ```
 
-访问：
-
-```text
-http://服务器IP:14514
-```
-
-或本机访问：
+本机访问：
 
 ```text
 http://127.0.0.1:14514
+```
+
+如确需局域网或服务器外部访问，可显式设置：
+
+```text
+webHost = 0.0.0.0
 ```
 
 登录时填写 `webToken`。
@@ -261,6 +263,8 @@ http://127.0.0.1:14514
 ```text
 http://127.0.0.1:14514/?token=你的Token
 ```
+
+页面读取后会清理地址栏里的 `token`，后续 API 请求只通过请求头传递 Token。
 
 Web 面板支持：
 
@@ -420,6 +424,8 @@ Web 面板支持：
 | `z_image_gitee` | Gitee AI Z-Image |
 | `jimeng2api` | Jimeng2API |
 | `grok` | xAI Grok 生图 |
+
+生图渠道可在 Web 面板中配置 `proxy`。当前支持 `http://` 和 `https://` 代理；生图请求、返回图片 URL 下载和生图模型拉取都会使用该代理。会话模型请求不受生图代理影响。
 
 ---
 
@@ -1088,8 +1094,9 @@ mv dist/index.mjs index.mjs
 
 ```text
 webEnable = true
+webHost = 127.0.0.1
 webPort = 14514
-webToken = changeme
+webToken = 请改成强随机Token
 ```
 
 然后访问：
@@ -1098,7 +1105,7 @@ webToken = changeme
 http://127.0.0.1:14514
 ```
 
-如果是服务器，请检查防火墙和端口放行。
+如果是服务器外部访问，请确认已显式设置 `webHost = 0.0.0.0`，并检查防火墙和端口放行。`webToken` 为空或仍为 `changeme` 时 Web 面板不会启动。
 
 ---
 

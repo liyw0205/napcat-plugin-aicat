@@ -1,5 +1,6 @@
 import type { ChannelConfig, ImageChannelConfig, PluginConfig } from '../types';
 import { DEFAULT_PLUGIN_CONFIG } from '../config';
+import { normalizeProxyUrl } from '../utils/proxy-fetch';
 
 function parseJsonValue<T> (value: unknown, fallback: T): T {
   if (value === undefined || value === null) return fallback;
@@ -209,7 +210,7 @@ function normalizeImageChannels (channels: unknown): ImageChannelConfig[] {
             .filter(m => m.id)
           : [],
         timeout: toNumber(c.timeout, 180000),
-        proxy: c.proxy ? String(c.proxy) : undefined,
+        proxy: normalizeProxyUrl(c.proxy),
         capability_options: c.capability_options || {
           text_to_image: true,
           image_to_image: true,
@@ -244,6 +245,7 @@ export function normalizePluginConfig (input: Partial<PluginConfig> | Record<str
     disabledGroups: normalizeStringList(merged.disabledGroups),
 
     webEnable: Boolean(merged.webEnable),
+    webHost: String(merged.webHost || DEFAULT_PLUGIN_CONFIG.webHost || '127.0.0.1').trim() || '127.0.0.1',
     webPort: toPort(merged.webPort, DEFAULT_PLUGIN_CONFIG.webPort),
     webToken: String(merged.webToken || DEFAULT_PLUGIN_CONFIG.webToken).trim(),
 

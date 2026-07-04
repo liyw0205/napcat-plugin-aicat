@@ -232,7 +232,7 @@ async function handleHelp (
       `AI 对话: ${pluginState.config.enableReply === false ? '关闭' : '开启'}`,
       `艾特触发: ${pluginState.config.allowAtTrigger ? '开启' : '关闭'}`,
       `公开取包: ${pluginState.config.allowPublicPacket ? '开启' : '关闭'}`,
-      `Web 面板: ${pluginState.config.webEnable ? `开启，端口 ${pluginState.config.webPort}` : '关闭'}`,
+      `Web 面板: ${pluginState.config.webEnable ? `开启，监听 ${pluginState.config.webHost || '127.0.0.1'}:${pluginState.config.webPort}` : '关闭'}`,
     ].join('\n'),
   });
 

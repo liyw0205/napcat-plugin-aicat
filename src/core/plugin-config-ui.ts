@@ -62,7 +62,14 @@ export function buildPluginConfigUi (ctx: NapCatPluginContext): PluginConfigSche
       'webEnable',
       '启用Web管理',
       false,
-      '开启后启动内置 Web 管理页'
+      '开启前必须把 Web Token 改成非 changeme 的强随机 Token'
+    ),
+
+    ctx.NapCatConfig.text(
+      'webHost',
+      'Web监听地址',
+      '127.0.0.1',
+      '默认仅本机访问；需要局域网访问时可手动填 0.0.0.0'
     ),
 
     ctx.NapCatConfig.text(
@@ -76,7 +83,7 @@ export function buildPluginConfigUi (ctx: NapCatPluginContext): PluginConfigSche
       'webToken',
       'Web Token',
       'changeme',
-      '访问 Web 管理页所需 Token'
+      '访问 Web 管理页所需 Token；启用 Web 前必须修改，空值和 changeme 不会启动'
     ),
 
     ctx.NapCatConfig.boolean(

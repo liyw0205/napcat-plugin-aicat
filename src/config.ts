@@ -24,6 +24,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   autoSwitchModel: true,
 
   webEnable: false,
+  webHost: '127.0.0.1',
   webPort: 14514,
   webToken: 'changeme',
 

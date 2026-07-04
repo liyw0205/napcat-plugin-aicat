@@ -757,7 +757,7 @@ pre{white-space:pre-wrap;word-break:break-all}
   <div class="login-card">
     <div class="login-cat">🐱</div>
     <h2>AI Cat Web管理</h2>
-    <p>欢迎回来喵～请输入 Web Token 登录。也可以通过 <b>?token=你的Token</b> 链接直接进入。</p>
+    <p>欢迎回来喵～请输入 Web Token 登录。也可以通过 <b>?token=你的Token</b> 链接进入，页面会自动清理地址栏里的 Token。</p>
     <input id="loginToken" placeholder="请输入 webToken">
     <div style="height:12px"></div>
     <button class="btn" id="loginBtn">登录喵</button>
@@ -809,8 +809,9 @@ pre{white-space:pre-wrap;word-break:break-all}
     <div><label>随机活跃捕捉条数</label><input id="randomActiveMessageCount" type="number" min="1" max="500" step="1"><div class="tip">群里有人发言时缓存最近多少条，用于随机活跃。默认 50。</div></div>
     <div><label>随机活跃间隔(分钟)</label><input id="randomActiveIntervalMinutes" type="number" min="0" max="10080" step="1"><div class="tip">达到间隔后，如果群里有人发言，会从缓存消息中抽一条并结合上下文回复。填 0 关闭随机活跃。</div></div>
     <div><label>随机聊天屏蔽QQ</label><input id="randomIgnoreQQsText"><div class="tip">多个 QQ 用逗号、空格或换行分隔。这些 QQ 的消息不会参与随机回复 / 随机活跃。</div></div>
+    <div><label>Web监听地址</label><input id="webHost" placeholder="127.0.0.1"><div class="tip">默认仅本机访问；需要局域网访问时可手动填 0.0.0.0。</div></div>
     <div><label>Web端口</label><input id="webPort" type="number" min="1" max="65535"></div>
-    <div><label>Web Token</label><input id="webToken"></div>
+    <div><label>Web Token</label><input id="webToken"><div class="tip">启用 Web 前必须改成非 changeme 的强随机 Token。</div></div>
   </div>
   <h3>开关</h3>
   <div class="grid">
@@ -1097,7 +1098,16 @@ export function getAdminClientJs (): string {
   return String.raw`(() => {
 let CONFIG = {};
 let editing = null;
-let TOKEN = new URLSearchParams(location.search).get('token') || localStorage.getItem('aicat_token') || '';
+const INITIAL_PARAMS = new URLSearchParams(location.search);
+const URL_TOKEN = (INITIAL_PARAMS.get('token') || '').trim();
+let TOKEN = URL_TOKEN || localStorage.getItem('aicat_token') || '';
+
+if (URL_TOKEN) {
+  localStorage.setItem('aicat_token', URL_TOKEN);
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('token');
+  history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+}
 
 /**
  * 仅保存在当前浏览器页面内存。
@@ -1484,9 +1494,8 @@ function secondsToTimeoutMs(value) {
 
 function api(path, options = {}) {
   const headers = Object.assign({'Content-Type':'application/json','x-aicat-token':TOKEN}, options.headers || {});
-  const url = path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
 
-  return fetch(url, Object.assign({}, options, {headers})).then(async r => {
+  return fetch(path, Object.assign({}, options, {headers})).then(async r => {
     let d = {};
 
     try {
@@ -1856,7 +1865,7 @@ function renderChannels() {
   $('statChat').textContent = String((CONFIG.chatChannels || []).length);
   $('statImage').textContent = String((CONFIG.imageChannels || []).length);
   $('statWeb').textContent = CONFIG.webEnable === false ? '关闭' : '开启';
-  $('statWebText').textContent = '端口：' + (CONFIG.webPort || 14514);
+  $('statWebText').textContent = '监听：' + (CONFIG.webHost || '127.0.0.1') + ':' + (CONFIG.webPort || 14514);
 
   const chat = $('chatList');
   clear(chat);
@@ -2079,7 +2088,7 @@ async function openModal(type, index) {
     '<div><label>Base URL</label><input id="mBase"></div>' +
     '<div><label>API Key</label><input id="mKey"></div>' +
     timeoutBlock +
-    (type === 'image' ? '<div><label>代理</label><input id="mProxy"></div>' : '') +
+    (type === 'image' ? '<div><label>代理</label><input id="mProxy" placeholder="http://127.0.0.1:7890"><div class="tip">仅生图请求与生图模型拉取使用，支持 http:// 和 https:// 代理。</div></div>' : '') +
     '</div>' +
     (type === 'image' ? '<h3>能力</h3><div class="grid"><label><input id="capText" type="checkbox">文生图</label><label><input id="capImage" type="checkbox">图生图</label><label><input id="capAspect" type="checkbox">宽高比</label><label><input id="capResolution" type="checkbox">分辨率</label></div>' : '') +
     '<h3>模型缓存</h3>' +
@@ -2338,6 +2347,7 @@ function fillForm() {
   $('randomActiveIntervalMinutes').value = clampNumber(CONFIG.randomActiveIntervalMinutes, 300, 0, 10080);
   $('randomIgnoreQQsText').value = (CONFIG.randomIgnoreQQs || []).join(', ');
 
+  $('webHost').value = CONFIG.webHost || '127.0.0.1';
   $('webPort').value = CONFIG.webPort || 14514;
   $('webToken').value = CONFIG.webToken || '';
 
@@ -2406,6 +2416,7 @@ function collectForm() {
     randomIgnoreQQs: splitList($('randomIgnoreQQsText').value || ''),
 
     webEnable: $('webEnable').checked,
+    webHost: $('webHost').value.trim() || '127.0.0.1',
     webPort: Number($('webPort').value || 14514),
     webToken: $('webToken').value.trim(),
 
@@ -2499,6 +2510,10 @@ async function save(data) {
       method: 'POST',
       body: JSON.stringify({ config: data }),
     });
+
+    if (typeof data.webToken === 'string' && data.webToken.trim()) {
+      saveToken(data.webToken);
+    }
 
     CONFIG = res.data || data;
     fillForm();

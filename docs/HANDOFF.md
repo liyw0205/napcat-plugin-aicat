@@ -39,6 +39,19 @@
 - 更多群状态修改 API 纳入管理员权限要求。
 - 普通用户消息记录查询限定当前群，私聊不允许查询全局消息记录。
 - 新增 `src/tools/ai-permissions.ts` 并加入 `npm run verify:config` 验证范围。
+- 执行 `npm run verify:config`、`npm run build` 和 `npm run verify`，均通过。
+
+已完成 `stage-3-image-proxy-and-web-hardening`：
+
+- 新增 `src/utils/proxy-fetch.ts`，使用 `undici` `ProxyAgent` 支持 per-request HTTP/HTTPS 代理。
+- `BaseImageAdapter.fetchRaw()` 已实际使用 `imageChannels[].proxy`。
+- 修复 `openai`、`gemini`、`gemini_openai` adapter 中直接 `fetch` 的生图请求或返回图片 URL 下载。
+- 生图模型拉取链路读取 `imageChannels[].proxy`。
+- 新增 `webHost` 配置，默认 `127.0.0.1`。
+- Web 启用时 `webToken` 为空或仍为 `changeme` 会拒绝启动。
+- Web 服务不再默认监听 `0.0.0.0`；需要外部访问时显式设置 `webHost=0.0.0.0`。
+- Web 前端不再把 Token 附加到每个 API query；`?token=` 登录后会清理地址栏。
+- README、NapCat 配置 UI、Web 配置页已同步新策略。
 - 执行 `npm run verify:config` 和 `npm run build`，均通过。
 
 ## 当前关键事实
@@ -46,43 +59,44 @@
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
 - 配置与权限纯模块验证命令为 `npm run verify:config`。
-- 运行期依赖当前只有 `napcat-types`。
+- 运行期依赖当前包括 `napcat-types` 和 `undici`。
+- `undici` 版本范围为 `^6.27.0`，选择原因是支持 Node >= 18.17、MIT、无 native 构建、无运行依赖。
 - Web 服务由 `src/core/state.ts` 定时同步，路由在 `src/core/web-server.ts`。
 - Web 配置保存入口是 `pluginState.setWebConfigPatch()`。
 - Web 配置版本字段为 `_configRevision`，只用于运行期冲突检测，不写入配置文件。
+- Web 默认关闭；启用时默认监听 `127.0.0.1`，且必须设置非空、非 `changeme` 的 `webToken`。
 - 配置保存会抽离 `models_cache` 到 `model-cache/` 独立 JSON；Web 保存不会再用入站 `models_cache` 覆盖缓存文件。
 - AI 工具权限纯 helper 在 `src/tools/ai-permissions.ts`。
 - 生图 Provider 走 `src/image/adapters/*` + `src/image/generator.ts` 的 adapter/fallback 模式。
+- 生图代理入口为 `ImageChannelConfig.proxy`，请求出口由 `src/utils/proxy-fetch.ts` 统一处理；当前仅支持 `http://` 和 `https://` 代理。
 
 ## 已知风险
 
 优先级从高到低：
 
-1. 生图代理：`proxy` 字段已传入适配器，但 `BaseImageAdapter.fetchRaw` 当前直接调用 `fetch`。
-2. Web 启用后仍监听 `0.0.0.0`，且默认 Token 仍为 `changeme`；首次安装默认关闭已降低默认暴露风险。
-3. 全量 `npx tsc --noEmit` 当前失败，不能直接作为门禁。已知原因包括 `napcat-types` 子路径源码导入、`src/image/adapters/*` 类型路径、`optimizeImagePrompt` 导入缺失、NapCat ActionMap 类型边界过窄等既有类型债。
-4. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
+1. 全量 `npx tsc --noEmit` 当前失败，不能直接作为门禁。已知原因包括 `napcat-types` 子路径源码导入、部分项目类型债等。
+2. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
+3. 生图代理已接入代码链路，但尚未用真实 HTTP 代理端到端覆盖所有 Provider。
+4. Web `webHost` 与不安全 Token 拒绝启动策略已实现，但尚未做 NapCat 实机热重启和外部访问回归。
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-3-image-proxy-and-web-hardening`
+推荐阶段名：`stage-4-typecheck-and-runtime-regression`
 
 建议完成范围：
 
-1. 子代理 A 只读梳理生图代理链路：
-   - `src/image/base-adapter.ts`
-   - `src/image/adapters/*`
-   - `src/image/generator.ts`
-   - `src/types.ts`
-2. 子代理 B 只读梳理 Web 启用安全策略：
-   - `src/config.ts`
-   - `src/core/plugin-config-ui.ts`
-   - `src/core/state.ts`
-   - `src/core/web-server.ts`
-   - `src/core/admin-assets.ts`
+1. 子代理 A 只读梳理全量 typecheck 失败项：
+   - `npx tsc --noEmit`
+   - `tsconfig.json`
+   - `napcat-types` 相关导入边界
+2. 子代理 B 设计运行回归清单：
+   - Web 启停、Token 校验、`webHost`
+   - Web 配置保存乐观锁
+   - 生图 proxy 假上游/假代理
+   - AI 工具权限边界
 3. 主代理基于子代理结论实施：
-   - 修复或明确生图代理行为。
-   - 明确 Web 启用后监听地址与默认 Token 策略。
+   - 优先修项目内类型债，不把 `napcat-types` 外部源码噪声混进本阶段。
+   - 为生图 proxy 增加最小可自动运行验证。
    - 跑 `npm run verify:config` 和 `npm run build`。
    - 更新进度与交接文档。
    - git commit 结束阶段。
@@ -112,5 +126,5 @@
 建议 commit message：
 
 ```text
-fix(stage-3): honor image proxy settings
+chore(stage-4): expand runtime regression checks
 ```

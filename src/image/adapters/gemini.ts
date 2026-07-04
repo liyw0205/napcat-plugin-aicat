@@ -30,7 +30,7 @@ export class GeminiImageAdapter extends BaseImageAdapter {
         generationConfig: { responseModalities: ['IMAGE'] },
       };
 
-      const res = await fetch(url, {
+      const res = await this.fetchRaw(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

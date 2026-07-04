@@ -50,6 +50,7 @@ export interface PluginConfig {
   disabledGroups: string[];
 
   webEnable: boolean;
+  webHost: string;
   webPort: number;
   webToken: string;
 

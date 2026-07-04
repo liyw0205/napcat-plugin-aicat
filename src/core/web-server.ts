@@ -8,9 +8,11 @@ import { generateImageWithFallback } from '../image/generator';
 import { getAdminClientJs, getAdminIndexHtml } from './admin-assets';
 import { getAdminSelfieUploadJs } from './admin-selfie-upload';
 import { imagePersonaManager } from '../image/persona-manager';
+import { fetchWithProxy, normalizeProxyUrl } from '../utils/proxy-fetch';
 
 export interface WebServerOptions {
   port: number;
+  host: string;
   token: string;
   getConfig: () => PluginConfig;
   setConfig: (patch: Record<string, unknown>) => PluginConfig;
@@ -19,6 +21,7 @@ export interface WebServerOptions {
 
 let server: http.Server | null = null;
 let currentPort = 0;
+let currentHost = '';
 let currentToken = '';
 
 function sendJson (
@@ -88,8 +91,22 @@ function checkAuth (
   url: URL,
   token: string
 ): boolean {
-  if (!token) return true;
+  if (!token) return false;
   return getTokenFromRequest(req, url) === token;
+}
+
+function isUnsafeWebToken (token: string): boolean {
+  const value = String(token || '').trim();
+  return !value || value.toLowerCase() === 'changeme';
+}
+
+function normalizeWebHost (host: unknown): string {
+  return String(host || '').trim() || '127.0.0.1';
+}
+
+function formatListenUrl (host: string, port: number): string {
+  const h = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  return `http://${h}:${port}`;
 }
 
 function isConfigConflictError (error: unknown): error is Error & {
@@ -155,17 +172,18 @@ function getImageGlobalTimeout (config: PluginConfig): number {
 async function fetchJsonWithTimeout (
   url: string,
   headers: Record<string, string>,
-  timeout: number
+  timeout: number,
+  proxy?: string
 ): Promise<unknown> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithProxy(url, {
       method: 'GET',
       headers,
       signal: controller.signal,
-    });
+    }, proxy);
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -195,6 +213,9 @@ async function refreshModels (
   };
 
   const providerType = String((channel as Partial<ImageChannelConfig>).provider_type || '');
+  const proxy = kind === 'image'
+    ? normalizeProxyUrl((channel as Partial<ImageChannelConfig>).proxy)
+    : undefined;
 
   if (kind === 'image' && providerType === 'gemini' && apiKey) {
     headers['x-goog-api-key'] = apiKey;
@@ -212,7 +233,7 @@ async function refreshModels (
 
   for (const url of candidates) {
     try {
-      const data = await fetchJsonWithTimeout(url, headers, timeout);
+      const data = await fetchJsonWithTimeout(url, headers, timeout, proxy);
       const models = extractModelIds(data);
       if (models.length) return models;
       errors.push(`${url}: 返回成功但未识别到模型`);
@@ -457,13 +478,28 @@ export function startWebServer (options: WebServerOptions): void {
     ? Math.floor(port)
     : 14514;
 
+  const host = normalizeWebHost(options.host);
   const token = String(options.token || '').trim();
 
-  if (server && currentPort === normalizedPort && currentToken === token) return;
+  if (isUnsafeWebToken(token)) {
+    stopWebServer();
+    options.log?.('error', 'Web 配置服务拒绝启动：请先将 webToken 改为非空且不是 changeme 的强随机 Token');
+    return;
+  }
+
+  if (
+    server &&
+    currentPort === normalizedPort &&
+    currentHost === host &&
+    currentToken === token
+  ) {
+    return;
+  }
 
   stopWebServer();
 
   currentPort = normalizedPort;
+  currentHost = host;
   currentToken = token;
 
   server = http.createServer(async (req, res) => {
@@ -496,6 +532,7 @@ export function startWebServer (options: WebServerOptions): void {
           data: {
             status: 'ok',
             port: currentPort,
+            host: currentHost,
             auth: Boolean(currentToken),
           },
         });
@@ -993,6 +1030,7 @@ export function startWebServer (options: WebServerOptions): void {
           model: target.model,
           provider_type: target.providerType,
           base_url: target.baseUrl,
+          proxy_configured: Boolean(target.proxy),
           timeout: target.timeout,
           prompt: finalPrompt,
           original_prompt: originalPrompt,
@@ -1108,8 +1146,8 @@ export function startWebServer (options: WebServerOptions): void {
     }
   });
 
-  server.listen(currentPort, '0.0.0.0', () => {
-    options.log?.('info', `Web 配置服务已启动: http://127.0.0.1:${currentPort}`);
+  server.listen(currentPort, currentHost, () => {
+    options.log?.('info', `Web 配置服务已启动: ${formatListenUrl(currentHost, currentPort)}`);
   });
 
   server.on('error', error => {
@@ -1123,6 +1161,7 @@ export function stopWebServer (): void {
   const old = server;
   server = null;
   currentPort = 0;
+  currentHost = '';
   currentToken = '';
 
   try {
@@ -1133,11 +1172,13 @@ export function stopWebServer (): void {
 export function getWebServerState (): {
   running: boolean;
   port: number;
+  host: string;
   auth: boolean;
 } {
   return {
     running: Boolean(server),
     port: currentPort,
+    host: currentHost,
     auth: Boolean(currentToken),
   };
 }

@@ -535,7 +535,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   taskManager.startScheduler();
 
   pluginState.log('info', `AI Cat 插件初始化完成喵～ v${PLUGIN_VERSION}`);
-  pluginState.log('info', `当前配置: webEnable=${String(pluginState.config.webEnable)}, webPort=${String(pluginState.config.webPort)}`);
+  pluginState.log('info', `当前配置: webEnable=${String(pluginState.config.webEnable)}, webHost=${String(pluginState.config.webHost)}, webPort=${String(pluginState.config.webPort)}`);
 };
 
 export const plugin_get_config = async (): Promise<PluginConfig> => {
@@ -567,7 +567,7 @@ export const plugin_set_config = async (ctx: NapCatPluginContext, config: Plugin
 
   applyRuntimeConfigEffects();
   pluginState.saveConfig();
-  pluginState.log('info', `配置已更新: webEnable=${String(pluginState.config.webEnable)}, webPort=${String(pluginState.config.webPort)}`);
+  pluginState.log('info', `配置已更新: webEnable=${String(pluginState.config.webEnable)}, webHost=${String(pluginState.config.webHost)}, webPort=${String(pluginState.config.webPort)}`);
 };
 
 const plugin_cleanup: PluginModule['plugin_cleanup'] = async () => {

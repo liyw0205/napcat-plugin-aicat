@@ -92,6 +92,8 @@ npm run verify:config
 - 主配置保存前会把 `models_cache` 抽离到独立 JSON，只保留 `models_cache_path`。
 - 修改配置保存逻辑时，必须验证 Web 面板、群聊指令、NapCat 配置页三种入口不会互相覆盖关键字段。
 - `webEnable` 默认值已在 `src/config.ts` 与配置 UI 中统一为 `false`，首次安装默认不启动 Web 面板。
+- `webHost` 默认值为 `127.0.0.1`；如需外部访问必须显式配置 `0.0.0.0` 或指定监听地址。
+- `webToken` 为空或仍为 `changeme` 时，Web 面板会拒绝启动。
 - Web 配置保存带 `_configRevision` 乐观锁；涉及渠道或模型优先级的提交缺少版本或版本过旧都会返回 409，避免静默覆盖其他入口的新配置。
 - Web 配置保存会经过统一归一化，入站 `models_cache` 不再写回独立缓存文件；模型缓存只应由拉取模型接口写入。
 
@@ -204,7 +206,7 @@ fix(stage-2): ...
 
 后续阶段优先验证：
 
-1. 生图代理字段：`proxy` 已进入配置和适配器构造，但 `BaseImageAdapter.fetchRaw` 目前未实际使用代理。
-2. Web 默认暴露剩余项：首次安装已默认关闭 Web，但 `webToken=changeme` 与监听 `0.0.0.0` 仍需后续明确策略。
-3. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。
-4. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
+1. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。
+2. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
+3. 生图代理已通过 `undici` `ProxyAgent` 接入请求链路，但仍建议使用真实 HTTP 代理覆盖各 Provider 端到端回归。
+4. Web 面板新增 `webHost` 与不安全 Token 拒绝启动策略后，仍需 NapCat 实机确认配置页保存、Web 热重启和外部访问场景。

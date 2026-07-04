@@ -94,21 +94,29 @@ class PluginState {
   private syncWebServer (): void {
     const enabled = Boolean(this.config.webEnable);
     const port = Number(this.config.webPort || 14514);
+    const host = String(this.config.webHost || DEFAULT_PLUGIN_CONFIG.webHost || '127.0.0.1').trim() || '127.0.0.1';
     const token = String(this.config.webToken || '').trim();
-    const signature = enabled ? `${port}:${token}` : 'disabled';
+    const signature = enabled ? `${host}:${port}:${token}` : 'disabled';
 
     if (signature === this.lastWebSignature) return;
 
     this.lastWebSignature = signature;
-    this.log('info', `Web配置同步: enabled=${String(enabled)}, port=${String(port)}, token=${token ? '***' : '(empty)'}`);
+    this.log('info', `Web配置同步: enabled=${String(enabled)}, host=${host}, port=${String(port)}, token=${token ? '***' : '(empty)'}`);
 
     if (!enabled) {
       stopWebServer();
       return;
     }
 
+    if (!token || token.toLowerCase() === 'changeme') {
+      stopWebServer();
+      this.log('error', 'Web 面板已启用，但 webToken 为空或仍为 changeme，已拒绝启动；请先设置强随机 Token');
+      return;
+    }
+
     startWebServer({
       port,
+      host,
       token,
       getConfig: () => this.getWebConfigSnapshot(),
       setConfig: patch => this.setWebConfigPatch(patch),
