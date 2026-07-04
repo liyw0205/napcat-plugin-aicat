@@ -8,6 +8,12 @@ AI Cat 是一个适用于 **NapCat** 的智能助手插件，支持 AI 对话、
 https://github.com/liyw0205/napcat-plugin-aicat
 ```
 
+开发协作文档：
+
+- [开发文档](docs/DEVELOPMENT.md)
+- [开发进度](docs/PROGRESS.md)
+- [会话交接](docs/HANDOFF.md)
+
 ---
 
 ## ✨ 功能特性
