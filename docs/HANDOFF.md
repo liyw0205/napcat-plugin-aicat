@@ -134,12 +134,21 @@
 - 当前环境未设置真实 Provider 配置，脚本会明确 skip。
 - 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过；其中 `verify:stage10` 和 `verify:stage11` 在当前缺少外部资源时按预期 skip。
 
+已完成 `stage-12-unit-test-foundation`：
+
+- 新增 `scripts/verify-stage12.config.ts` 和 `scripts/verify-stage12-unit-foundation.ts`。
+- 新增 `npm run verify:stage12`，并纳入 `npm run verify`。
+- `verify:stage12` 不新增依赖，使用现有 Vite 构建后运行轻量单元回归。
+- 当前覆盖 8 组纯函数边界：配置归一化、消息安全、AI 权限、消息工具作用域、owner-only 工具过滤、图片 URL/比例工具和 proxy URL 标准化。
+- `verify:stage12` 运行后会清理 `pluginState` Web monitor，避免 `message-safety` 引入状态模块后进程挂住。
+- 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过；其中 `verify:stage10` 和 `verify:stage11` 在当前缺少外部资源时按预期 skip，`verify:stage12` 8 组单元回归通过。
+
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
 - 推荐阶段门禁命令为 `npm run verify`。
-- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6`、`verify:stage7`、`verify:stage8`、`verify:stage9`、`verify:stage10`、`verify:stage11` 和 `build`。
+- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6`、`verify:stage7`、`verify:stage8`、`verify:stage9`、`verify:stage10`、`verify:stage11`、`verify:stage12` 和 `build`。
 - 裸跑 `npx tsc --noEmit --pretty false` 当前通过。
 - `tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声。
 - 运行期依赖当前包括 `napcat-types` 和 `undici`。
@@ -163,6 +172,7 @@
 - `verify:stage9` 是假 Provider contract smoke，不是真实 Provider 凭证和真实网络回归。
 - `verify:stage10` 是真实浏览器预检脚本；当前本机没有 Chromium/Chrome 时会 skip，完整链路需在有浏览器的集成环境执行。
 - `verify:stage11` 是真实 Provider smoke 预检脚本；当前本机没有 Provider 配置时会 skip，完整链路需在有凭证的集成环境执行。
+- `verify:stage12` 是轻量单元回归入口，覆盖核心纯函数边界，但还不是完整测试框架或 lint。
 
 ## 已知风险
 
@@ -172,13 +182,13 @@
 2. `verify:stage8` 已覆盖插件入口生命周期，但不能替代真实 NapCat adapter 和真实配置页。
 3. Web 前端已有 `verify:stage10` 真实浏览器 E2E 预检脚本，但当前环境没有 Chromium/Chrome，尚未执行完整浏览器链路。
 4. `verify:stage11` 已有真实 Provider smoke 预检脚本，但当前环境没有凭证，尚未执行完整真实 Provider 链路。
-5. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
-6. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
-7. 尚未建立 lint 或完整单元测试框架。
+5. `verify:stage12` 已覆盖部分核心纯函数，但尚未形成完整测试框架、覆盖率统计或 lint。
+6. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
+7. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-12-real-integration-or-test-foundation`
+推荐阶段名：`stage-13-test-depth-or-real-integration`
 
 建议完成范围：
 
@@ -198,7 +208,7 @@
    - `AICAT_REAL_IMAGE_SMOKE_CONFIG='...' npm run verify:stage11`
    - 输出文件路径。
    - Provider 错误格式、限流、超时、代理日志。
-4. 若仍没有外部环境，优先建立 lint 或更细粒度单元测试基础，减少后续阶段只靠 smoke 的风险。
+4. 若仍没有外部环境，继续扩大 `verify:stage12` 或拆分新的单元回归，优先覆盖配置保存、模型缓存、渠道优先级和 Web patch 冲突。
 5. 更新 `docs/PROGRESS.md` 和 `docs/HANDOFF.md`，完成阶段 commit。
 
 ## 开源复用提醒
@@ -226,5 +236,5 @@
 建议 commit message：
 
 ```text
-test(stage-12): add test foundation
+test(stage-13): deepen local regression coverage
 ```
