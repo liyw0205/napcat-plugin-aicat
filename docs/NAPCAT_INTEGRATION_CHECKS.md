@@ -16,6 +16,7 @@ mv dist/index.mjs index.mjs
 预期：
 
 - `npm run verify` 全部通过。
+- 其中 `verify:stage6` 已覆盖 Web 资产、Token 鉴权、配置保存/409 和自拍参考图 API smoke。
 - 插件根目录存在 `index.mjs`。
 - 重启 NapCat 后日志出现 `AI Cat 插件初始化完成`。
 

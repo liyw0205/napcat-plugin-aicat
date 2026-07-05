@@ -77,11 +77,21 @@
 - `verify:stage4` 补充 Web monitor 重启、`x-token`、`?token=` 鉴权和消息 ID 私聊结果拒绝回归。
 - 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
 
+已完成 `stage-6-web-e2e-and-provider-smoke`：
+
+- 新增 `scripts/verify-stage6.config.ts` 和 `scripts/verify-stage6-web-smoke.ts`。
+- 新增 `npm run verify:stage6`，并纳入 `npm run verify`。
+- `verify:stage6` 启动真实 Web server，使用真实 `pluginState.getWebConfigSnapshot()` 与 `pluginState.setWebConfigPatch()`。
+- `verify:stage6` 覆盖管理页资产、`admin.js` 关键前端逻辑、Token 鉴权、配置保存、409 冲突、配置文件不写 `_configRevision`、自拍参考图上传/清除。
+- 本地没有真实 NapCat 运行环境和 Provider 凭证；真实 Provider smoke 仍按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 在集成环境执行。
+- 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
+
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
 - 推荐阶段门禁命令为 `npm run verify`。
+- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6` 和 `build`。
 - 裸跑 `npx tsc --noEmit --pretty false` 当前通过。
 - `tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声。
 - 运行期依赖当前包括 `napcat-types` 和 `undici`。
@@ -98,13 +108,14 @@
 - 生图代理入口为 `ImageChannelConfig.proxy`，请求出口由 `src/utils/proxy-fetch.ts` 统一处理；当前仅支持 `http://` 和 `https://` 代理。
 - NapCat 实机/集成回归清单在 `docs/NAPCAT_INTEGRATION_CHECKS.md`。
 - 核心主人可用 `<prefix>诊断` 或 `<prefix>集成诊断` 查看实机运行态。
+- `verify:stage6` 是 HTTP/API smoke，不是完整浏览器 DOM E2E。
 
 ## 已知风险
 
 优先级从高到低：
 
 1. 尚未按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行真实 NapCat 实机加载和消息发送回归。
-2. Web 前端表单、渠道弹窗、高级 JSON、409 后刷新和自拍上传尚无浏览器 E2E。
+2. Web 前端表单点击、渠道弹窗、高级 JSON、409 后前端刷新和自拍上传 UI 尚无真实浏览器 E2E。
 3. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
 4. `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 仍需真实 Provider smoke。
 5. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
@@ -112,22 +123,24 @@
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-6-web-e2e-and-provider-smoke`
+推荐阶段名：`stage-7-browser-e2e-or-real-integration`
 
 建议完成范围：
 
-1. 为 Web 面板增加轻量浏览器 E2E 或可脚本化 smoke：
+1. 若运行环境可用浏览器，补充真正的 Web DOM E2E：
    - Token 登录与本地保存。
-   - `/api/config` 读取与保存。
-   - 渠道/模型字段 409 后刷新。
-   - 自拍上传基础路径。
-2. 若可用真实 Provider 凭证或沙箱，按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行 Provider smoke。
-3. 若可用 NapCat 实机，执行并记录：
+   - 表单保存。
+   - 渠道弹窗。
+   - 高级 JSON。
+   - 409 后前端刷新。
+   - 自拍上传 UI。
+2. 若可用 NapCat 实机，执行并记录：
    - `<prefix>诊断`
    - Web 热重启
    - NapCat 配置页保存
    - 群聊/私聊消息发送
    - AI 工具权限
+3. 若可用真实 Provider 凭证或沙箱，按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行 Provider smoke。
 4. 更新 `docs/PROGRESS.md` 和 `docs/HANDOFF.md`，完成阶段 commit。
 
 ## 开源复用提醒
@@ -155,5 +168,5 @@
 建议 commit message：
 
 ```text
-test(stage-6): add web e2e and provider smoke
+test(stage-7): add browser e2e or real integration smoke
 ```
