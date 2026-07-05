@@ -200,6 +200,27 @@ curl -i "http://127.0.0.1:14514/api/config?token=<强随机 Token>"
 
 ## 7. 生图真实 Provider
 
+可先用自动 smoke 脚本验证真实 adapter 生图链路：
+
+```bash
+AICAT_REAL_IMAGE_SMOKE_CONFIG='{"targets":[{"channelName":"real-provider","provider_type":"openai","base_url":"https://provider.example","api_key":"sk-xxx","model":"gpt-image-1"}]}' npm run verify:stage11
+```
+
+可选字段：
+
+- `prompt`：测试提示词。
+- `aspect_ratio`：默认 `1:1`。
+- `resolution`：默认 `1K`。
+- `referenceImagePath`：本地图生图参考图路径。
+- target 内可设置 `proxy`、`timeout`、`capability_options`、`extra`。
+- target 兼容插件配置风格的 `provider_type`、`base_url`、`api_key`，也兼容脚本内部使用的 `providerType`、`baseUrl`、`apiKey`。
+
+预期：
+
+- 无 `AICAT_REAL_IMAGE_SMOKE_CONFIG` 或 `AICAT_REAL_IMAGE_TARGETS_JSON` 时脚本明确 skip。
+- 有真实配置时脚本不打印 API Key。
+- 生成图片写入 `tmp/stage11-real-provider-smoke/`。
+
 每个真实 Provider 至少验证：
 
 1. 配置渠道 `provider_type`、`base_url`、`api_key`、可选 `proxy`。

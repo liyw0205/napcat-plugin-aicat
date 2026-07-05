@@ -1058,13 +1058,21 @@ npm run build
 npm run verify
 ```
 
-`verify` 会串联配置/typecheck、代理回归、Web API smoke、Web DOM 回归、NapCat 生命周期 smoke、Provider contract smoke、真实浏览器 E2E 预检和构建。
+`verify` 会串联配置/typecheck、代理回归、Web API smoke、Web DOM 回归、NapCat 生命周期 smoke、Provider contract smoke、真实浏览器 E2E 预检、真实 Provider smoke 预检和构建。
 
 真实浏览器 E2E 会自动查找 Chromium/Chrome；当前环境没有浏览器时会明确跳过。也可以显式指定：
 
 ```bash
 AICAT_BROWSER_EXECUTABLE=/path/to/chrome npm run verify:stage10
 ```
+
+真实 Provider smoke 默认无凭证时跳过；可通过环境变量提供目标：
+
+```bash
+AICAT_REAL_IMAGE_SMOKE_CONFIG='{"targets":[{"channelName":"real-provider","provider_type":"openai","base_url":"https://provider.example","api_key":"sk-xxx","model":"gpt-image-1"}]}' npm run verify:stage11
+```
+
+脚本不会打印 API Key，生成结果会写入 `tmp/stage11-real-provider-smoke/`。
 
 ### 构建产物
 

@@ -53,6 +53,7 @@ npm run verify:stage7
 npm run verify:stage8
 npm run verify:stage9
 npm run verify:stage10
+npm run verify:stage11
 npm run verify
 ```
 
@@ -65,7 +66,8 @@ npm run verify
 - `verify:stage8` 导入真实插件入口，使用伪 NapCat context 跑 `plugin_init`、NapCat 配置页保存、Web 热重启、主人/普通用户消息指令、notice 事件和 `plugin_cleanup` 生命周期 smoke。
 - `verify:stage9` 使用本地假 Provider 服务覆盖 `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 的 adapter 请求/响应解析和 retryable fallback。
 - `verify:stage10` 是真实浏览器 E2E 预检；发现 Chromium/Chrome 或 `AICAT_BROWSER_EXECUTABLE` 时会启动真实浏览器覆盖 Web 登录、布局、表单保存、409 冲突、文件上传和移动端视口。当前环境没有浏览器时会明确 skip。
-- `verify` 串联配置验证、源码类型检查、代理回归、stage4 运行回归、stage6 Web smoke、stage7 Web DOM 回归、stage8 生命周期 smoke、stage9 Provider contract smoke、stage10 真实浏览器预检和构建。
+- `verify:stage11` 是真实 Provider smoke 预检；设置 `AICAT_REAL_IMAGE_SMOKE_CONFIG` 或 `AICAT_REAL_IMAGE_TARGETS_JSON` 后会用真实 adapter 生图并把结果写入 `tmp/stage11-real-provider-smoke/`。当前环境没有凭证时会明确 skip。
+- `verify` 串联配置验证、源码类型检查、代理回归、stage4 运行回归、stage6 Web smoke、stage7 Web DOM 回归、stage8 生命周期 smoke、stage9 Provider contract smoke、stage10 真实浏览器预检、stage11 真实 Provider 预检和构建。
 
 阶段开发时优先跑 `npm run verify`。裸跑 `npx tsc --noEmit` 也应通过；`tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声，只检查本项目使用到的 NapCat 类型边界。
 
@@ -229,7 +231,7 @@ fix(stage-2): ...
 后续阶段优先验证：
 
 1. NapCat 实机或集成环境回归：按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 覆盖 Web 热重启、配置页保存、消息发送、AI 工具权限和真实适配器。
-2. 生图代理已有自动回归覆盖 OpenAI、Gemini 和模型拉取路径；`verify:stage9` 已用假上游覆盖 `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 的基础 contract，但仍建议用真实 Provider/真实 HTTP 代理覆盖这些外部服务。
+2. 生图代理已有自动回归覆盖 OpenAI、Gemini 和模型拉取路径；`verify:stage9` 已用假上游覆盖 `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 的基础 contract，`verify:stage11` 已提供真实 Provider smoke 入口，但仍需要可用凭证执行完整链路。
 3. `verify:stage10` 已准备真实浏览器 E2E，但当前本机未发现 Chromium/Chrome，仍需在有浏览器的集成环境用 `AICAT_BROWSER_EXECUTABLE=/path/to/chrome npm run verify:stage10` 跑完整链路。
 4. 当前 typecheck 通过本地 NapCat 类型边界隔离外部包噪声；后续升级 `napcat-types` 时需复核这些 shim 是否仍匹配实际运行时。
 5. 尚未建立 lint 或完整单元测试框架。
