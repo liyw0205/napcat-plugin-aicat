@@ -1058,7 +1058,13 @@ npm run build
 npm run verify
 ```
 
-`verify` 会串联配置/typecheck、代理回归、Web API smoke、Web DOM 回归、NapCat 生命周期 smoke、Provider contract smoke 和构建。
+`verify` 会串联配置/typecheck、代理回归、Web API smoke、Web DOM 回归、NapCat 生命周期 smoke、Provider contract smoke、真实浏览器 E2E 预检和构建。
+
+真实浏览器 E2E 会自动查找 Chromium/Chrome；当前环境没有浏览器时会明确跳过。也可以显式指定：
+
+```bash
+AICAT_BROWSER_EXECUTABLE=/path/to/chrome npm run verify:stage10
+```
 
 ### 构建产物
 

@@ -114,12 +114,21 @@
 - `verify:stage9` 覆盖 `gemini_openai` base64 响应、Markdown 图片 URL 下载、参考图 data URL 请求体；覆盖 `grok`、`jimeng2api`、`z_image_gitee` 的 b64_json contract；覆盖 500 后 fallback 到下一个 Provider target。
 - 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
 
+已完成 `stage-10-browser-e2e-preflight`：
+
+- 新增 `scripts/verify-stage10.config.ts` 和 `scripts/verify-stage10-browser-e2e.ts`。
+- 新增 `npm run verify:stage10`，并纳入 `npm run verify`。
+- `verify:stage10` 不新增依赖，通过 Chromium/Chrome DevTools Protocol 驱动真实浏览器。
+- 有浏览器时覆盖 URL Token 登录、地址栏 Token 清理、桌面端布局可见性、中文表单保存、409 冲突刷新、自拍参考图文件上传/清除和移动端视口布局。
+- 当前环境未发现 Chromium/Chrome，脚本会明确 skip；已清理 skip 路径的 `pluginState` Web monitor，避免进程挂住。
+- 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过；其中 `verify:stage10` 在当前无浏览器环境按预期 skip。
+
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
 - 推荐阶段门禁命令为 `npm run verify`。
-- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6`、`verify:stage7`、`verify:stage8`、`verify:stage9` 和 `build`。
+- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6`、`verify:stage7`、`verify:stage8`、`verify:stage9`、`verify:stage10` 和 `build`。
 - 裸跑 `npx tsc --noEmit --pretty false` 当前通过。
 - `tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声。
 - 运行期依赖当前包括 `napcat-types` 和 `undici`。
@@ -141,6 +150,7 @@
 - `verify:stage7` 是 DOM harness，不是真实浏览器；不能替代 Playwright/Chromium 级布局、CSS、原生文件选择器和移动端输入法回归。
 - `verify:stage8` 是伪 NapCat context 生命周期 smoke，不是真实 NapCat 实机回归。
 - `verify:stage9` 是假 Provider contract smoke，不是真实 Provider 凭证和真实网络回归。
+- `verify:stage10` 是真实浏览器预检脚本；当前本机没有 Chromium/Chrome 时会 skip，完整链路需在有浏览器的集成环境执行。
 
 ## 已知风险
 
@@ -148,7 +158,7 @@
 
 1. 尚未按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行真实 NapCat 实机加载和消息发送回归。
 2. `verify:stage8` 已覆盖插件入口生命周期，但不能替代真实 NapCat adapter 和真实配置页。
-3. Web 前端已有 `verify:stage7` DOM 回归，但尚无真实浏览器 E2E。
+3. Web 前端已有 `verify:stage10` 真实浏览器 E2E 预检脚本，但当前环境没有 Chromium/Chrome，尚未执行完整浏览器链路。
 4. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
 5. `verify:stage9` 已覆盖 `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 假上游 contract，但仍需真实 Provider smoke。
 6. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
@@ -156,7 +166,7 @@
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-10-real-integration-or-browser-e2e`
+推荐阶段名：`stage-11-real-integration-execution`
 
 建议完成范围：
 
@@ -166,11 +176,12 @@
    - NapCat 配置页保存
    - 群聊/私聊消息发送
    - AI 工具权限
-2. 若运行环境可用 Chromium/Playwright，补充真实浏览器 E2E：
-   - 布局可见性和关键按钮可点击。
-   - 原生文件上传。
-   - 移动端视口。
-   - CSS/真实浏览器安全策略差异。
+2. 若运行环境可用 Chromium/Chrome，执行并记录：
+   - `AICAT_BROWSER_EXECUTABLE=/path/to/chrome npm run verify:stage10`
+   - URL Token 登录和地址清理。
+   - 桌面端和移动端布局。
+   - 自拍参考图文件上传。
+   - 409 前端提示。
 3. 若可用真实 Provider 凭证或沙箱，按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行 Provider smoke。
 4. 更新 `docs/PROGRESS.md` 和 `docs/HANDOFF.md`，完成阶段 commit。
 
@@ -199,5 +210,5 @@
 建议 commit message：
 
 ```text
-test(stage-10): add real integration or browser e2e smoke
+test(stage-11): run real integration smoke
 ```

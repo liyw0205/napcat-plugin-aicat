@@ -36,6 +36,7 @@
     "verify:stage7": "vite build --config scripts/verify-stage7.config.ts && node tmp/stage7-verify/stage7-web-dom.mjs",
     "verify:stage8": "vite build --config scripts/verify-stage8.config.ts && node tmp/stage8-verify/stage8-napcat-lifecycle.mjs",
     "verify:stage9": "vite build --config scripts/verify-stage9.config.ts && node tmp/stage9-verify/stage9-provider-contracts.mjs",
-    "verify": "npm run verify:config && npm run typecheck && npm run verify:proxy && npm run verify:stage4 && npm run verify:stage6 && npm run verify:stage7 && npm run verify:stage8 && npm run verify:stage9 && npm run build"
+    "verify:stage10": "vite build --config scripts/verify-stage10.config.ts && node tmp/stage10-verify/stage10-browser-e2e.mjs",
+    "verify": "npm run verify:config && npm run typecheck && npm run verify:proxy && npm run verify:stage4 && npm run verify:stage6 && npm run verify:stage7 && npm run verify:stage8 && npm run verify:stage9 && npm run verify:stage10 && npm run build"
   }
 }
