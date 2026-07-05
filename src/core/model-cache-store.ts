@@ -153,7 +153,7 @@ export function stripModelCachesFromConfig<T extends Partial<PluginConfig> | Rec
       const row = { ...(item as Record<string, unknown>) };
       const name = String(row.name || '').trim();
 
-      row.models_cache = [];
+      delete row.models_cache;
       row.models_cache_path = name
         ? getModelCacheFilePath(type, name)
         : '';
