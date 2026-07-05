@@ -49,6 +49,7 @@ npm run typecheck
 npm run verify:proxy
 npm run verify:stage4
 npm run verify:stage6
+npm run verify:stage7
 npm run verify
 ```
 
@@ -57,7 +58,8 @@ npm run verify
 - `verify:proxy` 用假上游和假 HTTP 代理验证 `fetchWithProxy()`。
 - `verify:stage4` 覆盖 Web 启停/鉴权、生图代理 adapter 路径和 AI 权限纯 helper。
 - `verify:stage6` 启动真实 Web server 和真实 `pluginState.setWebConfigPatch()`，覆盖管理页资产、Token 鉴权、配置保存、409 冲突和自拍参考图上传/清除。
-- `verify` 串联配置验证、源码类型检查、代理回归、stage4 运行回归、stage6 Web smoke 和构建。
+- `verify:stage7` 启动真实 Web server，使用 `linkedom` 加载并执行真实管理页 HTML/JS，覆盖 URL Token 登录、本地 Token 保存、表单保存、渠道弹窗、高级 JSON、409 后前端刷新和自拍上传 UI。
+- `verify` 串联配置验证、源码类型检查、代理回归、stage4 运行回归、stage6 Web smoke、stage7 Web DOM 回归和构建。
 
 阶段开发时优先跑 `npm run verify`。裸跑 `npx tsc --noEmit` 也应通过；`tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声，只检查本项目使用到的 NapCat 类型边界。
 

@@ -1,6 +1,6 @@
 # 会话交接文档
 
-更新时间：2026-07-05
+更新时间：2026-07-06
 
 ## 给下一会话的启动指令
 
@@ -86,16 +86,28 @@
 - 本地没有真实 NapCat 运行环境和 Provider 凭证；真实 Provider smoke 仍按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 在集成环境执行。
 - 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
 
+已完成 `stage-7-web-dom-e2e-fallback`：
+
+- 当前环境 PATH 中没有 `chromium`、`google-chrome`、`firefox`，因此未做 Playwright/Chromium 真实浏览器 E2E。
+- 新增 `linkedom@^0.18.12` 作为 dev dependency；选择原因是 Node >=16、ISC、无 native 构建，适合 Termux/NapCat 验证链路。`npm audit` 返回 0 个漏洞。
+- 新增 `scripts/verify-stage7.config.ts` 和 `scripts/verify-stage7-web-dom.ts`。
+- 新增 `npm run verify:stage7`，并纳入 `npm run verify`。
+- `verify:stage7` 启动真实 Web server，拉取真实 `/` 与 `/admin.js`，用 DOM harness 执行真实前端脚本。
+- `verify:stage7` 覆盖 URL Token 登录、本地 Token 保存、地址栏 Token 清理、表单保存、渠道弹窗、高级 JSON、409 后前端刷新和自拍上传 UI。
+- README、开发文档和进度文档已同步 `verify:stage7`。
+- 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
+
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
 - 推荐阶段门禁命令为 `npm run verify`。
-- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6` 和 `build`。
+- `npm run verify` 当前串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4`、`verify:stage6`、`verify:stage7` 和 `build`。
 - 裸跑 `npx tsc --noEmit --pretty false` 当前通过。
 - `tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声。
 - 运行期依赖当前包括 `napcat-types` 和 `undici`。
 - `undici` 版本范围为 `^6.27.0`，选择原因是支持 Node >= 18.17、MIT、无 native 构建、无运行依赖。
+- 开发期 DOM 回归依赖 `linkedom@^0.18.12`，用于 `verify:stage7`。
 - Web 服务由 `src/core/state.ts` 定时同步，路由在 `src/core/web-server.ts`。
 - Web 配置保存入口是 `pluginState.setWebConfigPatch()`。
 - Web 配置版本字段为 `_configRevision`，只用于运行期冲突检测，不写入配置文件。
@@ -109,13 +121,14 @@
 - NapCat 实机/集成回归清单在 `docs/NAPCAT_INTEGRATION_CHECKS.md`。
 - 核心主人可用 `<prefix>诊断` 或 `<prefix>集成诊断` 查看实机运行态。
 - `verify:stage6` 是 HTTP/API smoke，不是完整浏览器 DOM E2E。
+- `verify:stage7` 是 DOM harness，不是真实浏览器；不能替代 Playwright/Chromium 级布局、CSS、原生文件选择器和移动端输入法回归。
 
 ## 已知风险
 
 优先级从高到低：
 
 1. 尚未按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行真实 NapCat 实机加载和消息发送回归。
-2. Web 前端表单点击、渠道弹窗、高级 JSON、409 后前端刷新和自拍上传 UI 尚无真实浏览器 E2E。
+2. Web 前端已有 `verify:stage7` DOM 回归，但尚无真实浏览器 E2E。
 3. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
 4. `gemini_openai`、`grok`、`jimeng2api`、`z_image_gitee` 仍需真实 Provider smoke。
 5. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
@@ -123,23 +136,21 @@
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-7-browser-e2e-or-real-integration`
+推荐阶段名：`stage-8-real-integration-or-browser-e2e`
 
 建议完成范围：
 
-1. 若运行环境可用浏览器，补充真正的 Web DOM E2E：
-   - Token 登录与本地保存。
-   - 表单保存。
-   - 渠道弹窗。
-   - 高级 JSON。
-   - 409 后前端刷新。
-   - 自拍上传 UI。
-2. 若可用 NapCat 实机，执行并记录：
+1. 若可用 NapCat 实机，执行并记录：
    - `<prefix>诊断`
    - Web 热重启
    - NapCat 配置页保存
    - 群聊/私聊消息发送
    - AI 工具权限
+2. 若运行环境可用 Chromium/Playwright，补充真实浏览器 E2E：
+   - 布局可见性和关键按钮可点击。
+   - 原生文件上传。
+   - 移动端视口。
+   - CSS/真实浏览器安全策略差异。
 3. 若可用真实 Provider 凭证或沙箱，按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行 Provider smoke。
 4. 更新 `docs/PROGRESS.md` 和 `docs/HANDOFF.md`，完成阶段 commit。
 
@@ -168,5 +179,5 @@
 建议 commit message：
 
 ```text
-test(stage-7): add browser e2e or real integration smoke
+test(stage-8): add real integration or browser e2e smoke
 ```

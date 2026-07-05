@@ -1052,6 +1052,14 @@ npm install
 npm run build
 ```
 
+### 验证
+
+```bash
+npm run verify
+```
+
+`verify` 会串联配置/typecheck、代理回归、Web API smoke、Web DOM 回归和构建。
+
 ### 构建产物
 
 ```text
