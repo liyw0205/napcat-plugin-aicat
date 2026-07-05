@@ -111,3 +111,46 @@ export function validateApiToolPermission (
 
   return null;
 }
+
+export function validateMessageToolScope (
+  name: string,
+  args: Record<string, unknown>,
+  currentGroupId?: string,
+  isOwnerUser?: boolean
+): ToolResult | null {
+  const queryGroupId = normalizeId(args.group_id);
+
+  if (isOwnerUser) return null;
+
+  if (!currentGroupId) {
+    return { success: false, error: '私聊中不能查询全局消息记录喵～' };
+  }
+
+  if (queryGroupId && queryGroupId !== currentGroupId) {
+    return { success: false, error: '只能查询当前群的消息记录喵～' };
+  }
+
+  if (!queryGroupId) {
+    args.group_id = currentGroupId;
+  }
+
+  return null;
+}
+
+export function validateMessageToolResultScope (
+  name: string,
+  result: ToolResult,
+  currentGroupId?: string,
+  isOwnerUser?: boolean
+): ToolResult | null {
+  if (isOwnerUser || name !== 'get_message_by_id' || !result.success) return null;
+
+  const data = (result.data || {}) as { group_id?: unknown; };
+  const messageGroupId = normalizeId(data.group_id);
+
+  if (messageGroupId && currentGroupId && messageGroupId !== currentGroupId) {
+    return { success: false, error: '只能查询当前群的消息记录喵～' };
+  }
+
+  return null;
+}

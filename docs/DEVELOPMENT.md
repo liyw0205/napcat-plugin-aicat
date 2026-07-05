@@ -41,13 +41,23 @@ mv dist/index.mjs index.mjs
 - `vite.config.ts` 以 `src/index.ts` 为库入口，输出 `dist/index.mjs`。
 - `tsconfig.json` 开启 `strict`，目标为 `ESNext`，模块解析为 `bundler`。
 
-当前没有全量 `test`、`lint`、`typecheck` 脚本。已建立最低配置验证脚本：
+当前验证脚本：
 
 ```bash
 npm run verify:config
+npm run typecheck
+npm run verify:proxy
+npm run verify:stage4
+npm run verify
 ```
 
-该脚本只覆盖可脱离 NapCat 运行时的配置默认值与归一化模块。阶段开发时，至少要跑 `npm run build` 作为最低验证；涉及配置归一化时同时跑 `npm run verify:config`。全量 `tsc --noEmit` 目前仍受 `napcat-types` 子路径源码和既有类型债影响，不能直接作为通过门禁。
+- `verify:config` 覆盖可脱离 NapCat 运行时的配置默认值、归一化和纯权限模块。
+- `typecheck` 使用 `tsconfig.typecheck.json` 做项目源码类型检查。
+- `verify:proxy` 用假上游和假 HTTP 代理验证 `fetchWithProxy()`。
+- `verify:stage4` 覆盖 Web 启停/鉴权、生图代理 adapter 路径和 AI 权限纯 helper。
+- `verify` 串联配置验证、源码类型检查、代理回归、stage4 运行回归和构建。
+
+阶段开发时优先跑 `npm run verify`。裸跑 `npx tsc --noEmit` 也应通过；`tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声，只检查本项目使用到的 NapCat 类型边界。
 
 ## 3. 生命周期与主流程
 
@@ -206,7 +216,7 @@ fix(stage-2): ...
 
 后续阶段优先验证：
 
-1. 全量类型检查：`npm run verify:config` 只覆盖配置纯模块；全量 `tsc --noEmit` 仍需后续拆解 `napcat-types` 和项目内类型债。
-2. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
-3. 生图代理已通过 `undici` `ProxyAgent` 接入请求链路，但仍建议使用真实 HTTP 代理覆盖各 Provider 端到端回归。
-4. Web 面板新增 `webHost` 与不安全 Token 拒绝启动策略后，仍需 NapCat 实机确认配置页保存、Web 热重启和外部访问场景。
+1. NapCat 实机或集成环境回归：Web 热重启、配置页保存、消息发送、AI 工具权限仍需真实适配器覆盖。
+2. 生图代理已有自动回归覆盖 OpenAI、Gemini 和模型拉取路径，但仍建议用真实 Provider/真实 HTTP 代理覆盖 grok、jimeng2api、z_image_gitee 等外部服务。
+3. 当前 typecheck 通过本地 NapCat 类型边界隔离外部包噪声；后续升级 `napcat-types` 时需复核这些 shim 是否仍匹配实际运行时。
+4. 尚未建立 lint 或完整单元测试框架。

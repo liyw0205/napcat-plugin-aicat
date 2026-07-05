@@ -8,8 +8,15 @@
     "skipLibCheck": true,
     "declaration": false,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "napcat-types/napcat-onebot/action/index": ["types/napcat-types.d.ts"],
+      "napcat-types/napcat-onebot/config/config": ["types/napcat-types.d.ts"],
+      "napcat-types/napcat-onebot/network/plugin-manger": ["types/napcat-types.d.ts"],
+      "napcat-types/napcat-onebot/types/index": ["types/napcat-types.d.ts"]
+    }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "types/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

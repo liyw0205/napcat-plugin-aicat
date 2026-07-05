@@ -54,11 +54,25 @@
 - README、NapCat 配置 UI、Web 配置页已同步新策略。
 - 执行 `npm run verify:config` 和 `npm run build`，均通过。
 
+已完成 `stage-4-typecheck-and-runtime-regression`：
+
+- 新增 `types/napcat-types.d.ts`，为项目实际使用的 NapCat 类型提供本地边界。
+- 更新 `tsconfig.json`，裸跑 `npx tsc --noEmit --pretty false` 已通过。
+- 新增 `tsconfig.typecheck.json` 和 `npm run typecheck`。
+- 修复项目内类型债：adapter 类型导入、`optimizeImagePrompt` 导入、AI 多模态 content 收窄、生图队列泛型、消息日志事件字段、Packet 嵌套字段、自定义指令模板类型。
+- 将消息记录工具作用域判断抽到 `src/tools/ai-permissions.ts`，便于纯脚本回归。
+- 新增 `scripts/verify-proxy-fetch.js`，低层验证 `fetchWithProxy()`。
+- 新增 `scripts/verify-stage4.config.ts` 和 `scripts/verify-stage4-runtime.ts`，覆盖 Web 鉴权/监听、配置冲突 409、生图模型拉取代理、OpenAI/Gemini 生图代理路径和 AI 权限 helper。
+- `npm run verify` 已串联 `verify:config`、`typecheck`、`verify:proxy`、`verify:stage4` 和 `build`。
+- 执行 `npx tsc --noEmit --pretty false`、`npm run verify`、`git diff --check`，均通过。
+
 ## 当前关键事实
 
 - 项目是 NapCat 插件，构建入口为 `src/index.ts`，产物为 `dist/index.mjs`。
 - 默认构建命令为 `npm run build`。
-- 配置与权限纯模块验证命令为 `npm run verify:config`。
+- 推荐阶段门禁命令为 `npm run verify`。
+- 裸跑 `npx tsc --noEmit --pretty false` 当前通过。
+- `tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声。
 - 运行期依赖当前包括 `napcat-types` 和 `undici`。
 - `undici` 版本范围为 `^6.27.0`，选择原因是支持 Node >= 18.17、MIT、无 native 构建、无运行依赖。
 - Web 服务由 `src/core/state.ts` 定时同步，路由在 `src/core/web-server.ts`。
@@ -74,30 +88,32 @@
 
 优先级从高到低：
 
-1. 全量 `npx tsc --noEmit` 当前失败，不能直接作为门禁。已知原因包括 `napcat-types` 子路径源码导入、部分项目类型债等。
-2. AI 工具权限已补强基础边界，但仍需要 NapCat 实机或集成环境回归。
-3. 生图代理已接入代码链路，但尚未用真实 HTTP 代理端到端覆盖所有 Provider。
-4. Web `webHost` 与不安全 Token 拒绝启动策略已实现，但尚未做 NapCat 实机热重启和外部访问回归。
+1. 尚未验证 NapCat 实机加载；Web 热重启、配置页保存、真实消息发送、AI 工具权限和真实 Provider 仍需集成环境覆盖。
+2. `verify:stage4` 使用假上游/假代理，不能替代真实网络和真实 Provider 行为。
+3. 本地 NapCat 类型 shim 与当前项目使用面匹配；后续升级 `napcat-types` 时需复核 shim。
+4. 尚未建立 lint 或完整单元测试框架。
 
 ## 下一阶段目标
 
-推荐阶段名：`stage-4-typecheck-and-runtime-regression`
+推荐阶段名：`stage-5-napcat-integration-readiness`
 
 建议完成范围：
 
-1. 子代理 A 只读梳理全量 typecheck 失败项：
-   - `npx tsc --noEmit`
-   - `tsconfig.json`
-   - `napcat-types` 相关导入边界
-2. 子代理 B 设计运行回归清单：
-   - Web 启停、Token 校验、`webHost`
-   - Web 配置保存乐观锁
-   - 生图 proxy 假上游/假代理
-   - AI 工具权限边界
+1. 子代理 A 只读梳理 NapCat 实机回归入口：
+   - `plugin_init`
+   - `plugin_set_config`
+   - `plugin_onmessage`
+   - Web 启停同步
+2. 子代理 B 只读梳理真实场景回归清单：
+   - Web 热重启、Token、`webHost`
+   - NapCat 配置页保存
+   - 群聊/私聊发送
+   - AI 工具权限
+   - 生图真实 Provider
 3. 主代理基于子代理结论实施：
-   - 优先修项目内类型债，不把 `napcat-types` 外部源码噪声混进本阶段。
-   - 为生图 proxy 增加最小可自动运行验证。
-   - 跑 `npm run verify:config` 和 `npm run build`。
+   - 编写可复现的实机/集成回归步骤。
+   - 视情况增加轻量诊断命令或日志，不扩大行为面。
+   - 跑 `npm run verify`。
    - 更新进度与交接文档。
    - git commit 结束阶段。
 
@@ -126,5 +142,5 @@
 建议 commit message：
 
 ```text
-chore(stage-4): expand runtime regression checks
+docs(stage-5): prepare napcat integration checks
 ```

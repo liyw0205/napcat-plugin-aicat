@@ -27,7 +27,10 @@
   },
   "scripts": {
     "build": "vite build",
+    "typecheck": "tsc -p tsconfig.typecheck.json --pretty false",
     "verify:config": "tsc -p tsconfig.verify.json --pretty false",
-    "verify": "npm run verify:config && npm run build"
+    "verify:proxy": "node scripts/verify-proxy-fetch.js",
+    "verify:stage4": "vite build --config scripts/verify-stage4.config.ts && node tmp/stage4-verify/stage4-runtime.mjs",
+    "verify": "npm run verify:config && npm run typecheck && npm run verify:proxy && npm run verify:stage4 && npm run build"
   }
 }

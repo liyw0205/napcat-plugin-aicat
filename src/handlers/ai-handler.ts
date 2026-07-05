@@ -16,7 +16,12 @@ import { getWebTools, executeWebTool } from '../tools/web-tools';
 import { getMessageTools, executeMessageTool } from '../tools/message-tools';
 import { getImageTools, executeImageTool } from '../tools/image-tools';
 import { getMusicTools, executeMusicTool } from '../tools/music-tools';
-import { filterToolsForUser, validateApiToolPermission } from '../tools/ai-permissions';
+import {
+  filterToolsForUser,
+  validateApiToolPermission,
+  validateMessageToolResultScope,
+  validateMessageToolScope,
+} from '../tools/ai-permissions';
 import { getCustomCommandTools, executeCustomCommandTool } from '../managers/custom-commands';
 import { getScheduledTaskTools, executeScheduledTaskTool } from '../managers/scheduled-tasks';
 import { getUserWatcherTools, executeUserWatcherTool } from '../managers/user-watcher';
@@ -38,6 +43,26 @@ import { imagePersonaManager } from '../image/persona-manager';
 
 const runningAiImageTasks = new Set<string>();
 const runningAiMusicTasks = new Set<string>();
+
+function aiContentToText (content: AIMessage['content'] | undefined): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+
+  return content
+    .map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+
+      const record = part as Record<string, unknown>;
+      if (typeof record.text === 'string') return record.text;
+      if (typeof record.content === 'string') return record.content;
+
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
 
 function getAiImageTaskKey (userId: string, groupId?: string): string {
   return groupId ? `g:${groupId}:u:${userId}` : `p:${userId}`;
@@ -832,7 +857,7 @@ export async function handleAICommand (
     const toolCalls = aiMsg.tool_calls || [];
 
     if (!toolCalls.length) {
-      let content = aiMsg.content || '';
+      let content = aiContentToText(aiMsg.content);
 
       if (content && !userIsOwner && pluginState.config.safetyFilter !== false) {
         content = sanitizeReplyText(content);
@@ -886,7 +911,7 @@ export async function handleAICommand (
 
       runningAiImageTasks.add(imageKey);
 
-      const preText = aiMsg.content?.trim();
+      const preText = aiContentToText(aiMsg.content).trim();
 
       if (preText) {
         await sendLongMessage(event, preText, ctx);
@@ -914,7 +939,7 @@ export async function handleAICommand (
         musicArgs = JSON.parse(musicToolCall.function.arguments || '{}') as Record<string, unknown>;
       } catch {}
 
-      const preText = aiMsg.content?.trim();
+      const preText = aiContentToText(aiMsg.content).trim();
 
       if (preText) {
         await sendLongMessage(event, preText, ctx);
@@ -1248,30 +1273,12 @@ async function executeMessageToolWithScope (
   currentGroupId?: string,
   isOwnerUser?: boolean
 ): Promise<ToolResult> {
-  const queryGroupId = args.group_id as string | undefined;
-
-  if (!isOwnerUser && !currentGroupId) {
-    return { success: false, error: '私聊中不能查询全局消息记录喵～' };
-  }
-
-  if (!isOwnerUser && queryGroupId && currentGroupId && queryGroupId !== currentGroupId) {
-    return { success: false, error: '只能查询当前群的消息记录喵～' };
-  }
-
-  if (!isOwnerUser && currentGroupId && !queryGroupId) {
-    args.group_id = currentGroupId;
-  }
+  const scopeError = validateMessageToolScope(name, args, currentGroupId, isOwnerUser);
+  if (scopeError) return scopeError;
 
   const result = executeMessageTool(name, args);
-
-  if (!isOwnerUser && name === 'get_message_by_id' && result.success) {
-    const data = (result.data || {}) as { group_id?: unknown; };
-    const messageGroupId = data.group_id ? String(data.group_id) : '';
-
-    if (messageGroupId && currentGroupId && messageGroupId !== currentGroupId) {
-      return { success: false, error: '只能查询当前群的消息记录喵～' };
-    }
-  }
+  const resultScopeError = validateMessageToolResultScope(name, result, currentGroupId, isOwnerUser);
+  if (resultScopeError) return resultScopeError;
 
   return result;
 }

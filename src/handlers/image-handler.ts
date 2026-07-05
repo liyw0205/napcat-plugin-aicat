@@ -13,6 +13,7 @@ import { imagePersonaManager } from '../image/persona-manager';
 import { isOwner, isWhitelisted } from '../managers/owner-manager';
 import { imageSafetyAuditor } from '../image/safety-auditor';
 import { imageTaskQueue } from '../image/task-queue';
+import { optimizeImagePrompt } from '../image/prompt-optimizer';
 
 function formatDuration (ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;

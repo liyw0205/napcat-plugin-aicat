@@ -1,5 +1,5 @@
 import { BaseImageAdapter } from '../base-adapter';
-import type { ImageGenerateRequest, ImageGenerateResult } from '../types';
+import type { ImageGenerateRequest, ImageGenerateResult } from '../../types';
 import { normalizeImageBaseUrl } from '../utils';
 
 export class JimengImageAdapter extends BaseImageAdapter {

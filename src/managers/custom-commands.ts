@@ -152,7 +152,7 @@ class CustomCommandManager {
       return response;
     } else if (cmd.response_type === 'api') {
       const apiResult = await this.callApi(cmd, match, userId);
-      if (typeof apiResult === 'object' && apiResult !== null && !(apiResult as string).startsWith?.('API 调用失败')) {
+      if (typeof apiResult === 'object' && apiResult !== null) {
         let response = cmd.response_content || "";
         response = this.processComplexTemplate(response, apiResult as Record<string, unknown>);
         response = response.replace(/\{user_id\}/g, userId);
@@ -160,7 +160,7 @@ class CustomCommandManager {
         response = response.replace(/\{nickname\}/g, nickname);
         return response;
       }
-      return apiResult as string;
+      return String(apiResult);
     }
 
     return '';
@@ -408,7 +408,7 @@ class CustomCommandManager {
     if (!obj || !path) return '';
     
     const parts = path.split('.');
-    let current = obj;
+    let current: unknown = obj;
     
     for (const part of parts) {
       if (current === null || current === undefined) return '';

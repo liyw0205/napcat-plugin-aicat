@@ -595,10 +595,10 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
     user_name: sender?.nickname || '',
     group_id: groupId || '',
     group_name: '',
-    message_type: event.message_type,
+    message_type: event.message_type === 'group' ? 'group' : 'private',
     content: raw.slice(0, 500),
     raw_message: raw,
-    timestamp: event.time,
+    timestamp: Number((event as { time?: unknown; }).time || Math.floor(Date.now() / 1000)),
   });
 
   const watchResult = await userWatcherManager.checkAndExecute(

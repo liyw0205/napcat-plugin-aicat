@@ -27,7 +27,11 @@ export class ImageTaskQueue {
 
   async submit<T> (run: TaskFactory<T>): Promise<T> {
     return await new Promise<T>((resolve, reject) => {
-      this.queue.push({ run, resolve, reject });
+      this.queue.push({
+        run: run as TaskFactory<unknown>,
+        resolve: resolve as (value: unknown) => void,
+        reject,
+      });
       this.drain();
     });
   }

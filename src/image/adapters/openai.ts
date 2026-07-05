@@ -1,5 +1,5 @@
 import { BaseImageAdapter } from '../base-adapter';
-import type { ImageGenerateRequest, ImageGenerateResult } from '../types';
+import type { ImageGenerateRequest, ImageGenerateResult } from '../../types';
 import { aspectRatioToOpenAISize, normalizeImageBaseUrl } from '../utils';
 
 function isGptImageModel (model: string): boolean {

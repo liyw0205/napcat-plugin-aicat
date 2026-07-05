@@ -129,7 +129,11 @@ export function extractSenderInfo(pbData: Record<number, unknown>): { senderQQ: 
 
 export function extractBodyData(pbData: Record<number, unknown>): unknown {
   try {
-    return (((pbData[3] as Record<number, unknown>)?.[6] as Record<number, unknown>)?.[3] as Record<number, unknown>)?.[1]?.[2] ?? null;
+    const field3 = pbData[3] as Record<number, unknown> | undefined;
+    const field6 = field3?.[6] as Record<number, unknown> | undefined;
+    const field3In6 = field6?.[3] as Record<number, unknown> | undefined;
+    const field1 = field3In6?.[1] as Record<number, unknown> | undefined;
+    return field1?.[2] ?? null;
   } catch { return null; }
 }
 
