@@ -148,7 +148,7 @@ export function validateMessageToolResultScope (
   const data = (result.data || {}) as { group_id?: unknown; };
   const messageGroupId = normalizeId(data.group_id);
 
-  if (messageGroupId && currentGroupId && messageGroupId !== currentGroupId) {
+  if (!currentGroupId || !messageGroupId || messageGroupId !== currentGroupId) {
     return { success: false, error: '只能查询当前群的消息记录喵～' };
   }
 

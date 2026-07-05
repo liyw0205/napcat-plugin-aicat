@@ -125,6 +125,10 @@ class PluginState {
   }
 
   setVerificationCleanupInterval (interval: ReturnType<typeof setInterval>): void {
+    this.startWebMonitor();
+    if (this.cleanupInterval && this.cleanupInterval !== interval) {
+      clearInterval(this.cleanupInterval);
+    }
     this.cleanupInterval = interval;
     this.syncWebServer();
   }

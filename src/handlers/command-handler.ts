@@ -14,6 +14,7 @@ import {
 } from '../managers/owner-manager';
 import { userWatcherManager } from '../managers/user-watcher';
 import { sendReply, sendForwardMsg } from '../utils/message';
+import { getWebServerState } from '../core/web-server';
 import { handleAICommand } from './ai-handler';
 import {
   getAllEnabledChatModels,
@@ -21,6 +22,7 @@ import {
 } from '../core/config-service';
 import { handleChannelConfigCommand } from './channel-command-handler';
 import { handleMusicCommand } from './music-handler';
+import { imageTaskQueue } from '../image/task-queue';
 
 interface CommandDef {
   name: string;
@@ -143,6 +145,13 @@ async function handleHelp (
         ].join('\n'),
       },
       {
+        title: '🩺 集成诊断',
+        content: [
+          `${prefix} 诊断 - 查看 NapCat actions、Web、模型和队列状态`,
+          `${prefix} 集成诊断 - 同上`,
+        ].join('\n'),
+      },
+      {
         title: '🧩 渠道管理',
         content: [
           '一个渠道会同时用于会话和生图。',
@@ -262,6 +271,53 @@ function formatWhitelist (): string {
     '',
     '【动态添加】',
     dynamicPart,
+  ].join('\n');
+}
+
+function getWebTokenStatus (): string {
+  const token = String(pluginState.config.webToken || '').trim();
+
+  if (!token) return '未设置';
+  if (token.toLowerCase() === 'changeme') return '仍为 changeme';
+  return '已设置';
+}
+
+function formatIntegrationDiagnostics (): string {
+  const web = getWebServerState();
+  const owners = listOwners();
+  const whitelist = listWhitelist();
+  const imageQueue = imageTaskQueue.getSnapshot();
+  const chatModels = getAllEnabledChatModels();
+  const imageModels = getAllEnabledImageModels();
+  const config = pluginState.config;
+
+  return [
+    '🩺 AI Cat 集成诊断',
+    '',
+    `版本: ${PLUGIN_VERSION}`,
+    `Adapter: ${pluginState.adapterName || '未初始化'}`,
+    `Actions: ${pluginState.actions ? '已初始化' : '未初始化'}`,
+    `NetworkConfig: ${pluginState.networkConfig ? '已初始化' : '未初始化'}`,
+    `配置文件: ${pluginState.configPath || '未设置'}`,
+    '',
+    'Web:',
+    `  配置: ${config.webEnable ? '开启' : '关闭'} ${config.webHost || '127.0.0.1'}:${String(config.webPort || 14514)}`,
+    `  Token: ${getWebTokenStatus()}`,
+    `  运行: ${web.running ? `运行中 ${web.host}:${String(web.port)}` : '未运行'}${web.auth ? '，已启用鉴权' : ''}`,
+    '',
+    '模型:',
+    `  会话渠道: ${(config.chatChannels || []).length}，启用模型: ${chatModels.length}，优先级项: ${(config.enabledChatModelPriority || []).length}`,
+    `  生图渠道: ${(config.imageChannels || []).length}，启用模型: ${imageModels.length}，优先级项: ${(config.enabledImageModelPriority || []).length}`,
+    '',
+    '运行开关:',
+    `  AI对话: ${config.enableReply === false ? '关闭' : '开启'}`,
+    `  艾特触发: ${config.allowAtTrigger ? '开启' : '关闭'}`,
+    `  公开取包: ${config.allowPublicPacket ? '开启' : '关闭'}`,
+    `  调试日志: ${config.debug ? '开启' : '关闭'}`,
+    '',
+    '权限与队列:',
+    `  核心主人: ${owners.total}，白名单: ${whitelist.total}`,
+    `  生图队列: running=${imageQueue.running}, pending=${imageQueue.pending}, max=${imageQueue.maxConcurrent}`,
   ].join('\n');
 }
 
@@ -418,6 +474,15 @@ const commands: CommandDef[] = [
         ctx
       );
 
+      return true;
+    },
+  },
+  {
+    name: '集成诊断',
+    ownerOnly: true,
+    pattern: /^(?:诊断|集成诊断)$/,
+    handler: async (event, _cmd, _m, ctx) => {
+      await sendReply(event, formatIntegrationDiagnostics(), ctx);
       return true;
     },
   },

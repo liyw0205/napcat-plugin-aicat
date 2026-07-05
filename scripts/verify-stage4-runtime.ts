@@ -66,11 +66,11 @@ async function readBody (req: http.IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function waitForOk (url: string): Promise<void> {
+async function waitForOk (url: string, timeoutMs = 3000): Promise<void> {
   const started = Date.now();
   let lastError = '';
 
-  while (Date.now() - started < 3000) {
+  while (Date.now() - started < timeoutMs) {
     try {
       const res = await fetch(url);
       if (res.ok) return;
@@ -272,6 +272,14 @@ async function verifyWebServer (): Promise<void> {
   });
   assert(xToken.status === 200, 'config with x-aicat-token should be 200');
 
+  const legacyXToken = await fetch(`http://127.0.0.1:${port}/api/config`, {
+    headers: { 'x-token': 'stage4-secret' },
+  });
+  assert(legacyXToken.status === 200, 'config with x-token should be 200');
+
+  const queryToken = await fetch(`http://127.0.0.1:${port}/api/config?token=stage4-secret`);
+  assert(queryToken.status === 200, 'config with query token should be 200');
+
   conflict = true;
   const conflictRes = await fetch(`http://127.0.0.1:${port}/api/config`, {
     method: 'POST',
@@ -295,6 +303,43 @@ async function verifyWebServer (): Promise<void> {
 
   stopWebServer();
   assert(!getWebServerState().running, 'stopWebServer should stop the singleton');
+}
+
+async function verifyWebMonitorRestart (): Promise<void> {
+  stopWebServer();
+  pluginState.clearVerificationCleanupInterval();
+
+  const port = await getFreePort();
+  pluginState.config = {
+    ...DEFAULT_PLUGIN_CONFIG,
+    webEnable: false,
+    webHost: '127.0.0.1',
+    webPort: port,
+    webToken: 'stage4-secret',
+  };
+
+  pluginState.setVerificationCleanupInterval(setInterval(() => {}, 60000));
+
+  try {
+    assert(!getWebServerState().running, 'web server should stay stopped while disabled');
+
+    pluginState.config = {
+      ...pluginState.config,
+      webEnable: true,
+    };
+
+    await waitForOk(`http://127.0.0.1:${port}/api/health`, 4500);
+
+    const state = getWebServerState();
+    assert(state.running && state.port === port, 'web monitor should restart after cleanup and init');
+  } finally {
+    pluginState.config = {
+      ...pluginState.config,
+      webEnable: false,
+    };
+    pluginState.clearVerificationCleanupInterval();
+    stopWebServer();
+  }
 }
 
 function imageChannel (baseUrl: string, proxy: string): ImageChannelConfig {
@@ -508,11 +553,42 @@ function verifyAiPermissions (): void {
     ),
     'get_message_by_id should reject cross-group result for non-owner'
   );
+
+  assert(
+    validateMessageToolResultScope(
+      'get_message_by_id',
+      { success: true, data: { group_id: '' } },
+      '100',
+      false
+    ),
+    'get_message_by_id should reject private result for non-owner in group'
+  );
+
+  assert(
+    validateMessageToolResultScope(
+      'get_message_by_id',
+      { success: true, data: { group_id: '100' } },
+      '100',
+      false
+    ) === null,
+    'get_message_by_id should allow current group result for non-owner'
+  );
+
+  assert(
+    validateMessageToolResultScope(
+      'get_message_by_id',
+      { success: true, data: { group_id: '' } },
+      undefined,
+      false
+    ),
+    'get_message_by_id should reject private result for non-owner in private chat'
+  );
 }
 
 async function main (): Promise<void> {
   try {
     await test('web server auth and restart policy', verifyWebServer);
+    await test('web monitor restart after cleanup', verifyWebMonitorRestart);
     await test('image model and adapter proxy path', verifyImageProxy);
     await test('ai permission pure helpers', verifyAiPermissions);
     console.log('stage4 runtime verification passed');

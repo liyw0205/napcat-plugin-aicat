@@ -13,6 +13,7 @@ https://github.com/liyw0205/napcat-plugin-aicat
 - [开发文档](docs/DEVELOPMENT.md)
 - [开发进度](docs/PROGRESS.md)
 - [会话交接](docs/HANDOFF.md)
+- [NapCat 集成回归清单](docs/NAPCAT_INTEGRATION_CHECKS.md)
 
 ---
 
@@ -378,6 +379,15 @@ Web 面板支持：
 | `/开启AI` | 开启本群 AI |
 | `/关闭AI` | 关闭本群 AI |
 | `/AI状态` | 查看本群 AI 状态 |
+
+---
+
+### 集成诊断
+
+| 指令 | 说明 |
+|---|---|
+| `/诊断` | 查看 NapCat actions、Web、模型和生图队列状态 |
+| `/集成诊断` | 同上 |
 
 ---
 

@@ -59,6 +59,8 @@ npm run verify
 
 阶段开发时优先跑 `npm run verify`。裸跑 `npx tsc --noEmit` 也应通过；`tsconfig.json` 通过本地 `types/napcat-types.d.ts` 映射隔离 `napcat-types` 发布包内部源码噪声，只检查本项目使用到的 NapCat 类型边界。
 
+NapCat 实机或集成环境回归按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 执行。核心主人可发送 `<prefix>诊断` 或 `<prefix>集成诊断` 查看 actions、Web、模型、权限和生图队列运行态；该指令不得输出 Web Token、API Key 或其他密钥。
+
 ## 3. 生命周期与主流程
 
 插件导出：
@@ -216,7 +218,7 @@ fix(stage-2): ...
 
 后续阶段优先验证：
 
-1. NapCat 实机或集成环境回归：Web 热重启、配置页保存、消息发送、AI 工具权限仍需真实适配器覆盖。
+1. NapCat 实机或集成环境回归：按 `docs/NAPCAT_INTEGRATION_CHECKS.md` 覆盖 Web 热重启、配置页保存、消息发送、AI 工具权限和真实适配器。
 2. 生图代理已有自动回归覆盖 OpenAI、Gemini 和模型拉取路径，但仍建议用真实 Provider/真实 HTTP 代理覆盖 grok、jimeng2api、z_image_gitee 等外部服务。
 3. 当前 typecheck 通过本地 NapCat 类型边界隔离外部包噪声；后续升级 `napcat-types` 时需复核这些 shim 是否仍匹配实际运行时。
 4. 尚未建立 lint 或完整单元测试框架。
